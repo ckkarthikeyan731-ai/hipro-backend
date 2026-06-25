@@ -7,7 +7,6 @@ node_modules
 .env
 
 # Build outputs
-/frontend/dist
 /frontend/build
 
 # Logs

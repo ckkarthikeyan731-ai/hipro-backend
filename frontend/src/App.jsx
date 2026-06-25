@@ -71,13 +71,20 @@ export default function App() {
   const [selectedJob, setSelectedJob] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState({ type: 'all' });
+  const [loading, setLoading] = useState(true);
 
 
   useEffect(() => {
-    fetch('http://localhost:10000/api/jobs')
+    fetch('http://localhost:5000/api/jobs')
       .then(res => res.json())
-      .then(data => setJobs(data))
-      .catch(err => console.error("Error fetching jobs:", err));
+      .then(data => {
+        setJobs(data);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error("Error fetching jobs:", err);
+        setLoading(false);
+      });
   }, []);
 
   const filteredJobs = Array.isArray(jobs)

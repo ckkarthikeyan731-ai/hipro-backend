@@ -1,16 +1,13 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const jobSchema = new mongoose.Schema({
     title: { type: String, required: true },
-    company: { type: String, required: true },
-    description: { type: String, required: true },
-    location: { type: String },
-    salary: { type: String },
-    posted: { type: String },
-    verified: { type: Boolean, default: false },
-    skills: [String],
-    benefits: [String],
-    recruiterId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
+    company: { type: String, default: 'HiPro Partner Corp' },
+    location: { type: String, default: 'Chennai, TN' },
+    type: { type: String, default: 'Full-time' },
+    salary: { type: String, default: 'Competitive Pay' },
+    status: { type: String, default: 'Active' },
+    applications: { type: Number, default: 0 }
 }, { timestamps: true });
 
-module.exports = mongoose.model('Job', jobSchema);
+export default mongoose.model('Job', jobSchema);

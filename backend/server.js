@@ -1,24 +1,42 @@
-require('dotenv').config();
-const express = require('express');
-const mongoose = require('mongoose');
-const cors = require('cors');
+import express from 'express';
+import mongoose from 'mongoose';
+import cors from 'cors';
+import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
+import authRoutes from './routes/auth.js';
+import jobRoutes from './routes/jobs.js';
+
+dotenv.config();
 const app = express();
 
-// Middleware
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 app.use(cors());
 app.use(express.json());
 
-// Routes
-app.use('/api/auth', require('./routes/authRoutes'));
-app.use('/api/jobs', require('./routes/jobRoutes'));
+// API Endpoints
+app.use('/api/auth', authRoutes);
+app.use('/api/jobs', jobRoutes);
+
+// Global Production Deployment Engine
+if (process.env.NODE_ENV === 'production') {
+    app.use(express.static(path.join(__dirname, '../frontend/dist')));
+    app.get('*', (req, res) => {
+        res.sendFile(path.resolve(__dirname, '../frontend', 'dist', 'index.html'));
+    });
+}
 
 const PORT = process.env.PORT || 10000;
-const MONGO_URL = process.env.MONGO_URL;
+
+// UPDATED: Now matches the exact 'MONGO_URL' variable from your .env file
+const MONGO_URL = process.env.MONGO_URL || "mongodb://127.0.0.1:27017/hipro";
 
 mongoose.connect(MONGO_URL)
     .then(() => {
-        console.log('✅ Connected to HiPro Database!');
-        app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+        console.log("⚡ [Database] Connected successfully to MongoDB");
+        app.listen(PORT, () => console.log(`🚀 [Server] Global system active on port ${PORT}`));
     })
-    .catch(err => console.error('❌ DB Error:', err.message));
+    .catch(err => console.error("❌ [Database] Connection failure:", err));

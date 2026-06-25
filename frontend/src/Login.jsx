@@ -1,26 +1,28 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
+import axios from 'axios';
 
-export default function Login({ setRole }) {
+function Login() {
     const [email, setEmail] = useState('');
-    const [role, setRoleLocal] = useState('employee');
+    const [password, setPassword] = useState('');
 
-    const handleLogin = async () => {
-        await fetch('http://localhost:10000/api/auth', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password: '123', role })
-        });
-        setRole(role); // This updates your app to show Recruiter view or Employee view
+    const handleLogin = async (e) => {
+        e.preventDefault();
+        try {
+            // This URL must match your backend port
+            const res = await axios.post('http://localhost:5000/api/auth/login', { email, password });
+            alert("Login successful! Role: " + res.data.role);
+        } catch (err) {
+            alert("Invalid credentials");
+        }
     };
 
     return (
-        <div className="p-10">
-            <input placeholder="Email" onChange={e => setEmail(e.target.value)} />
-            <select onChange={e => setRoleLocal(e.target.value)}>
-                <option value="employee">Employee</option>
-                <option value="recruiter">Recruiter</option>
-            </select>
-            <button onClick={handleLogin}>Login</button>
-        </div>
+        <form onSubmit={handleLogin}>
+            <input type="email" placeholder="Email" onChange={(e) => setEmail(e.target.value)} required />
+            <input type="password" placeholder="Password" onChange={(e) => setPassword(e.target.value)} required />
+            <button type="submit">Login</button>
+        </form>
     );
 }
+
+export default Login;

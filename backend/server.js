@@ -23,6 +23,7 @@ app.use('/api/jobs', jobRoutes);
 
 // Global Production Deployment Engine - CORRECTED
 if (process.env.NODE_ENV === 'production') {
+    // Look up one level from 'backend', then into 'frontend/dist'
     app.use(express.static(path.join(__dirname, '..', 'frontend', 'dist')));
 
     app.get('*', (req, res) => {

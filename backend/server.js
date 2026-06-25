@@ -23,10 +23,12 @@ app.use('/api/jobs', jobRoutes);
 
 // Global Production Deployment Engine - CORRECTED
 if (process.env.NODE_ENV === 'production') {
-    app.use(express.static(path.join(__dirname, '../src/frontend/dist')));
+    // This tells Node to look at the absolute root of the project
+    // regardless of where it thinks the /src/ folders are.
+    app.use(express.static(path.join(process.cwd(), 'frontend', 'dist')));
 
     app.get('*', (req, res) => {
-        res.sendFile(path.join(__dirname, '../src/frontend/dist/index.html'));
+        res.sendFile(path.join(process.cwd(), 'frontend', 'dist', 'index.html'));
     });
 }
 

@@ -23,11 +23,10 @@ app.use('/api/jobs', jobRoutes);
 
 // Global Production Deployment Engine - CORRECTED
 if (process.env.NODE_ENV === 'production') {
-    // This uses the 'path' imported at the top, not a 'require'
-    app.use(express.static(path.join(__dirname, '../frontend/dist')));
+    app.use(express.static(path.join(__dirname, '../src/frontend/dist')));
 
     app.get('*', (req, res) => {
-        res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
+        res.sendFile(path.join(__dirname, '../src/frontend/dist/index.html'));
     });
 }
 

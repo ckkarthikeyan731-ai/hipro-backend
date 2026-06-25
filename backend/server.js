@@ -21,18 +21,17 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/jobs', jobRoutes);
 
-// Global Production Deployment Engine
+// Global Production Deployment Engine - CORRECTED
 if (process.env.NODE_ENV === 'production') {
-    const path = require('path');
-    app.use(express.static(path.join(__dirname, '..', 'frontend', 'dist')));
+    // This uses the 'path' imported at the top, not a 'require'
+    app.use(express.static(path.join(__dirname, '../frontend/dist')));
+
     app.get('*', (req, res) => {
-        res.sendFile(path.resolve(__dirname, '../frontend', 'dist', 'index.html'));
+        res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
     });
 }
 
 const PORT = process.env.PORT || 10000;
-
-// UPDATED: Now matches the exact 'MONGO_URL' variable from your .env file
 const MONGO_URL = process.env.MONGO_URL || "mongodb://127.0.0.1:27017/hipro";
 
 mongoose.connect(MONGO_URL)

@@ -1,26 +1,22 @@
 const express = require('express');
 const router = express.Router();
-const User = require('../models/User');
-const bcrypt = require('bcryptjs');
+const User = require('../models/user');
 
-// Login Route
 router.post('/login', async (req, res) => {
     try {
-        const { email, password } = req.body;
+        const { email, password, role } = req.body;
 
-        // Find user by email
-        const user = await User.findOne({ email });
+        // Find or create user to handle registration and login in one flow
+        let user = await User.findOne({ email });
+
         if (!user) {
-            return res.status(401).json({ message: "Invalid email or password" });
+            user = await User.create({ email, password, role });
         }
 
-        // Compare provided password with hashed password in database
-        const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) {
-            return res.status(401).json({ message: "Invalid email or password" });
+        if (user.password !== password) {
+            return res.status(401).json({ message: "Invalid credentials" });
         }
 
-        // Login successful
         res.status(200).json({
             message: "Login successful",
             role: user.role,

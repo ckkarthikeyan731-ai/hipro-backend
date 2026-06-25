@@ -10,6 +10,7 @@ const jobSchema = new mongoose.Schema({
     verified: { type: Boolean, default: false },
     skills: [String],
     benefits: [String],
-}, { timestamps: true }); // <--- Add this line
+    recruiterId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
+}, { timestamps: true });
 
 module.exports = mongoose.model('Job', jobSchema);

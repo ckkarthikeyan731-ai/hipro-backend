@@ -18,14 +18,17 @@ const StudentDashboard = () => {
     const [submitLoading, setSubmitLoading] = useState(false);
 
     // Fetch jobs registry and student's personal application history ledger
+    // Fetch jobs registry silently without throwing raw browser popups on load
     useEffect(() => {
         const fetchDashboardData = async () => {
             try {
                 const token = localStorage.getItem('token');
 
+                // Fetch public jobs list (Does not require login token)
                 const jobsResponse = await axios.get(`${API_URL}/jobs`);
                 setJobs(Array.isArray(jobsResponse.data) ? jobsResponse.data : []);
 
+                // Only fetch applications backlog silently if a token exists
                 if (token) {
                     const appsResponse = await axios.get(`${API_URL}/jobs/my-applications`, {
                         headers: { Authorization: `Bearer ${token}` }
@@ -33,7 +36,7 @@ const StudentDashboard = () => {
                     setMyApplications(Array.isArray(appsResponse.data) ? appsResponse.data : []);
                 }
             } catch (err) {
-                console.error("Failed to compile student data matrices:", err);
+                console.error("Dashboard database indices fetch bypassed silently:", err);
             } finally {
                 setLoading(false);
             }

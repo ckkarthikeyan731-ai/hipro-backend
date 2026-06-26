@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-import API_URL from '../config.js'; // Dynamically pulls https://hipro-backend.onrender.com/api
+import API_URL from '../config.js';
 
 const Login = () => {
     const [email, setEmail] = useState('');
@@ -14,30 +14,37 @@ const Login = () => {
         setLoading(true);
 
         try {
-            // Force the authentication request directly to your live production server
             const response = await axios.post(`${API_URL}/auth/login`, {
                 email: email,
                 password: password
             });
 
-            if (response.data && response.data.token) {
-                // Secure your session tokens inside local storage registers
-                localStorage.setItem('token', response.data.token);
-                localStorage.setItem('role', response.data.role); // Expected values: 'student' or 'recruiter'
+            // 1. Extract the token value dynamically out of any common response field variation
+            const incomingToken = response.data?.token || response.data?.authToken || response.data?.jwtToken;
+            const userRole = response.data?.role || 'student';
 
-                // Seamless route evaluation based on the authenticated profile parameters
-                if (response.data.role === 'recruiter') {
+            if (incomingToken) {
+                // 2. Clear out old entries to prevent session contamination
+                localStorage.clear();
+
+                // 3. Save under all common key variations so every frontend file reads it correctly
+                localStorage.setItem('token', incomingToken);
+                localStorage.setItem('authToken', incomingToken);
+                localStorage.setItem('role', userRole);
+
+                // 4. Smooth client routing redirection
+                if (userRole === 'recruiter') {
                     window.location.href = '#recruiter';
                 } else {
                     window.location.href = '#student';
                 }
 
-                // Force reload if your frontend routing framework relies on direct window state audits
                 window.location.reload();
+            } else {
+                setError("Authentication succeeded but no token structure was found in response.");
             }
         } catch (err) {
             console.error("Authentication handshake rejected:", err);
-            // Matches the system response design layout visible in your image logs
             setError(err.response?.data?.message || "Invalid system credentials provided.");
         } finally {
             setLoading(false);
@@ -55,7 +62,7 @@ const Login = () => {
                 </div>
 
                 {error && (
-                    <div className="mb-4 bg-rose-50 text-rose-600 border border-rose-100 px-4 py-3 rounded-xl text-xs font-bold transition duration-150 animate-pulse">
+                    <div className="mb-4 bg-rose-50 text-rose-600 border border-rose-100 px-4 py-3 rounded-xl text-xs font-bold">
                         {error}
                     </div>
                 )}

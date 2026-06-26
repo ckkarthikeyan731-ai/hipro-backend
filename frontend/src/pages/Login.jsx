@@ -38,73 +38,37 @@ const Login = () => {
         setError('');
         setLoading(true);
 
-        // Sanitize string metrics configuration data vectors before network transmission
-        const cleanEmail = email.trim();
-        if (!cleanEmail) {
-            setError("The operational system email address field cannot be left blank.");
-            setLoading(false);
-            return;
-        }
-
-        if (!password || password.length < 4) {
-            setError("Security credential keys must meet the minimum parameter length requirements.");
-            setLoading(false);
-            return;
-        }
-
         try {
-            // Forward authorization parameters straight to your production cloud web cluster
             const response = await axios.post(`${API_URL}/auth/login`, {
-                email: cleanEmail,
+                email: email.trim(),
                 password: password
             });
 
-            // DEEP PAYLOAD AUTO-RECOVERY SCANNER: Extract validation key tokens from any object wrapping schema
+            // Extract the string out of any potential backend nested field layout
             const secureToken =
                 response.data?.token ||
                 response.data?.authToken ||
                 response.data?.jwt ||
-                response.data?.jwtToken ||
                 response.data?.data?.token ||
-                response.data?.user?.token ||
-                (response.headers?.authorization ? response.headers.authorization.split(' ')[1] : null);
+                response.data?.user?.token;
 
-            const profileRole =
-                response.data?.role ||
-                response.data?.user?.role ||
-                response.data?.accountType ||
-                'student';
+            const profileRole = response.data?.role || response.data?.user?.role || 'student';
 
-            if (secureToken && secureToken !== "undefined" && secureToken !== "null") {
-                // Instantly purge stale authorization tracking footprints to eliminate cache intersection bugs
+            if (secureToken) {
                 localStorage.clear();
                 sessionStorage.clear();
 
-                // Lock down identical authentication values across all available variable scopes simultaneously
+                // Force populate EVERY standard namespace key to guarantee the dashboard detects it
                 localStorage.setItem('token', secureToken);
                 localStorage.setItem('authToken', secureToken);
                 localStorage.setItem('role', profileRole);
-                localStorage.setItem('session_generation_timestamp', Date.now().toString());
-
-                // Session Storage Fallback Layer for advanced cross-tab memory preservation configurations
                 sessionStorage.setItem('token', secureToken);
-                sessionStorage.setItem('role', profileRole);
 
-                // Preserve operator context markers if the user toggled the remember checkbox
-                if (rememberMe) {
-                    localStorage.setItem('saved_operator_email', cleanEmail);
-                }
+                console.log("Session verified. Token securely committed to browser disk storage.");
 
-                // DUAL ROUTING ENGINE: Maps both traditional clean routes and modern SPA routing switch variants
                 const fallbackRouteSegment = (profileRole === 'recruiter' || profileRole === 'admin') ? 'recruiter' : 'student';
+                window.location.href = `/_${fallbackRouteSegment}`;
 
-                if (window.location.pathname.includes('_') || !window.location.hash) {
-                    window.location.href = `/_${fallbackRouteSegment}`;
-                } else {
-                    window.location.href = `#${fallbackRouteSegment}`;
-                }
-
-                // Introduce structural I/O latency delay allowing system disk files to complete register tasks
                 setTimeout(() => {
                     window.location.reload();
                 }, 150);
@@ -112,13 +76,12 @@ const Login = () => {
                 setError("Credentials validated successfully, but the security access token was unreadable in the payload.");
             }
         } catch (err) {
-            console.error("Secure handshake authentication layout rejected by remote host:", err);
-            setError(err.response?.data?.message || err.response?.data?.error || "Invalid security parameters provided. Please check network logs.");
+            console.error("Secure handshake authentication layout rejected:", err);
+            setError(err.response?.data?.message || "Invalid security parameters provided.");
         } finally {
             if (isMounted) setLoading(false);
         }
     };
-
     return (
         <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-sans antialiased selection:bg-indigo-500 selection:text-white">
             <div className={`bg-white border border-slate-100 rounded-3xl p-8 shadow-sm w-full max-w-md transition-all duration-500 transform ${inputAnimation ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'} hover:shadow-md`}>

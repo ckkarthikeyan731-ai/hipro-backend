@@ -1,131 +1,181 @@
 import React, { useState, useEffect } from 'react';
-import { Briefcase, CheckCircle, Search, MapPin, Building, AlertCircle } from 'lucide-react';
+import axios from 'axios';
 
-export const StudentDashboard = () => {
-    const [searchTerm, setSearchTerm] = useState('');
+const StudentDashboard = (props) => {
     const [jobs, setJobs] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
+    const [selectedJob, setSelectedJob] = useState(null);
+    const [file, setFile] = useState(null);
+    const [coverLetter, setCoverLetter] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
 
-    const [applications, setApplications] = useState([
-        { id: 101, title: 'Python Developer', company: 'ZOHO Corp', status: 'Under Review' },
-        { id: 102, title: 'Backend Support', company: 'Infosys', status: 'Shortlisted' }
-    ]);
-
+    // Fetch jobs directly from your working backend endpoint
     useEffect(() => {
-        const fetchLiveJobs = async () => {
+        const fetchAvailableJobs = async () => {
             try {
-                setLoading(true);
-                const response = await fetch('/api/jobs');
-                if (!response.ok) throw new Error('Failed to load listings.');
-                const data = await response.json();
-                setJobs(data);
+                const response = await axios.get('https://hipro-backend.onrender.com/api/jobs');
+                setJobs(Array.isArray(response.data) ? response.data : []);
             } catch (err) {
-                console.error("Error reading data:", err);
-                setError("Unable to connect to live job feed. Displaying safe local backup data.");
-                setJobs([
-                    { _id: 'f1', title: 'Software Engineer Intern', company: 'Google', location: 'Bengaluru', type: 'Full-time', salary: '₹12,00,000 / yr' },
-                    { _id: 'f2', title: 'Frontend Developer', company: 'TCS', location: 'Chennai', type: 'Remote', salary: '₹6,50,000 / yr' }
-                ]);
-            } finally {
-                setLoading(false);
+                console.error("Error retrieving job index:", err);
             }
         };
-        fetchLiveJobs();
+        fetchAvailableJobs();
     }, []);
 
-    const handleApply = (jobTitle, companyName) => {
-        alert(`Successfully applied for ${jobTitle} at ${companyName}!`);
-        const newApp = { id: Date.now(), title: jobTitle, company: companyName, status: 'Applied' };
-        setApplications([newApp, ...applications]);
+    const handleFormSubmit = async (e) => {
+        e.preventDefault();
+        if (!file) return alert("Please select a valid resume document to upload.");
+
+        setIsSubmitting(true);
+        const dataPayload = new FormData();
+        dataPayload.append('resume', file);
+        dataPayload.append('coverLetter', coverLetter);
+
+        // Dynamically extract student ID passing down from App session context or fallback to storage
+        const dynamicStudentId = props.sessionUser?.id || props.sessionUser?._id || localStorage.getItem('userId') || '';
+        dataPayload.append('studentId', dynamicStudentId);
+
+        try {
+            await axios.post(`https://hipro-backend.onrender.com/api/jobs/${selectedJob._id}/apply`, dataPayload, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            alert("Application submitted successfully to our database platform.");
+            setFile(null);
+            setCoverLetter('');
+            setSelectedJob(null);
+        } catch (err) {
+            console.error(err);
+            alert(err.response?.data?.error || "Error transmitting application parameters.");
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     const filteredJobs = jobs.filter(job =>
-        (job.title?.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (job.company?.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (job.location?.toLowerCase().includes(searchTerm.toLowerCase()))
+        job.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        job.company?.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     return (
-        <div className="max-w-6xl mx-auto px-4 py-10">
-            <div className="bg-gradient-to-r from-blue-600 to-indigo-700 p-8 rounded-3xl text-white mb-10 shadow-lg">
-                <h1 className="text-3xl font-black mb-2">Welcome Back, Karthikeyan</h1>
-                <p className="text-blue-100 mb-6 text-sm">Explore premium opportunities tailored to your technology profile.</p>
-
-                <div className="relative max-w-xl">
-                    <Search className="absolute left-4 top-3.5 text-slate-400" size={20} />
-                    <input
-                        type="text"
-                        placeholder="Type role, company or location to filter live..."
-                        className="w-full pl-12 pr-4 py-3.5 bg-white text-slate-900 rounded-xl outline-none focus:ring-2 focus:ring-blue-400 font-medium text-sm shadow-sm"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                </div>
-            </div>
-
-            {error && (
-                <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-center gap-3 text-amber-800 text-sm font-semibold">
-                    <AlertCircle size={18} />
-                    <span>{error}</span>
-                </div>
-            )}
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div className="lg:col-span-2 space-y-4">
-                    <h2 className="text-xl font-black text-slate-900 mb-4 flex items-center gap-2">
-                        <Briefcase size={22} className="text-blue-600" /> Available Openings ({filteredJobs.length})
-                    </h2>
-
-                    {loading ? (
-                        <div className="text-center py-6 text-slate-400 font-medium">Loading live feeds...</div>
-                    ) : filteredJobs.length === 0 ? (
-                        <div className="text-slate-500 bg-white p-10 rounded-2xl border text-center font-medium">
-                            No matching postings verified inside your MongoDB records.
-                        </div>
-                    ) : (
-                        filteredJobs.map((job) => (
-                            <div key={job._id} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all flex flex-col md:flex-row md:items-center justify-between gap-4">
-                                <div className="space-y-1">
-                                    <div className="flex items-center gap-2">
-                                        <span className="bg-blue-50 text-blue-700 text-xs px-2.5 py-1 rounded-md font-bold uppercase tracking-wider">{job.type}</span>
-                                        <span className="text-sm font-bold text-emerald-600">{job.salary}</span>
-                                    </div>
-                                    <h3 className="text-lg font-black text-slate-900">{job.title}</h3>
-                                    <div className="flex flex-wrap gap-4 text-xs font-semibold text-slate-500 pt-1">
-                                        <span className="flex items-center gap-1"><Building size={14} /> {job.company}</span>
-                                        <span className="flex items-center gap-1"><MapPin size={14} /> {job.location}</span>
-                                    </div>
-                                </div>
-                                <button onClick={() => handleApply(job.title, job.company)} className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-sm transition-colors shadow-sm">
-                                    Apply Now
-                                </button>
-                            </div>
-                        ))
-                    )}
-                </div>
-
-                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm h-fit">
-                    <h2 className="text-xl font-black text-slate-900 mb-4 flex items-center gap-2">
-                        <CheckCircle size={20} className="text-emerald-600" /> Track Applications
-                    </h2>
-                    <div className="divide-y divide-slate-100">
-                        {applications.map((app) => (
-                            <div key={app.id} className="py-3.5 flex justify-between items-center">
-                                <div>
-                                    <p className="text-sm font-bold text-slate-800">{app.title}</p>
-                                    <p className="text-xs text-slate-500 font-medium">{app.company}</p>
-                                </div>
-                                <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${app.status === 'Shortlisted' ? 'bg-green-100 text-green-800' :
-                                        app.status === 'Applied' ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-800'
-                                    }`}>
-                                    {app.status}
-                                </span>
-                            </div>
-                        ))}
+        <div className="min-h-screen bg-slate-50/50">
+            {/* Top Branding Premium Banner */}
+            <div className="bg-gradient-to-r from-indigo-900 to-slate-900 text-white py-12 px-6 shadow-sm">
+                <div className="max-w-6xl mx-auto">
+                    <h1 className="text-3xl font-extrabold tracking-tight sm:text-4xl">Find Your Next Horizon</h1>
+                    <p className="mt-2 text-indigo-200 text-sm max-w-xl">
+                        Browse active job listings, upload your professional profile details, and track application responses seamlessly.
+                    </p>
+                    <div className="mt-6 max-w-md">
+                        <input
+                            type="text"
+                            placeholder="Search positions, technologies, or keywords..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-indigo-200 focus:outline-none focus:ring-2 focus:ring-indigo-400 backdrop-blur-md transition-all text-sm"
+                        />
                     </div>
                 </div>
             </div>
+
+            {/* Main Listing View */}
+            <main className="max-w-6xl mx-auto px-4 py-10">
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+                    {filteredJobs.map((job) => (
+                        <div key={job._id} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 flex flex-col justify-between hover:shadow-md transition-all group duration-300">
+                            <div>
+                                <div className="flex justify-between items-start">
+                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700">
+                                        {job.type || "Full-Time"}
+                                    </span>
+                                    <span className="text-xs text-slate-400 font-medium">{job.location || "Remote"}</span>
+                                </div>
+                                <h3 className="mt-3 text-lg font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">
+                                    {job.title}
+                                </h3>
+                                <p className="text-sm font-semibold text-slate-500">{job.company}</p>
+                                <p className="mt-2 text-xs text-slate-400 line-clamp-3 leading-relaxed">
+                                    {job.description || "No supplemental details provided for this active listing."}
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => setSelectedJob(job)}
+                                className="mt-6 w-full bg-slate-900 hover:bg-indigo-600 text-white text-xs font-bold py-2.5 px-4 rounded-xl transition-all duration-200 shadow-sm shadow-slate-900/10"
+                            >
+                                Apply For Position
+                            </button>
+                        </div>
+                    ))}
+                </div>
+
+                {/* Application Overlay Drawer / Modal System */}
+                {selectedJob && (
+                    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50 transition-opacity duration-300">
+                        <div className="bg-white rounded-3xl max-w-lg w-full shadow-2xl border border-slate-100 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                            <div className="bg-slate-50 px-6 py-4 border-b border-slate-100 flex justify-between items-center">
+                                <div>
+                                    <h2 className="font-bold text-slate-800 text-base">Application Gateway</h2>
+                                    <p className="text-xs text-slate-400 font-medium">{selectedJob.title} — {selectedJob.company}</p>
+                                </div>
+                                <button
+                                    onClick={() => { setSelectedJob(null); setFile(null); }}
+                                    className="text-slate-400 hover:text-slate-600 text-lg font-bold p-1"
+                                >
+                                    &times;
+                                </button>
+                            </div>
+                            <form onSubmit={handleFormSubmit} className="p-6 space-y-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                                        Upload Professional Resume
+                                    </label>
+                                    <div className="border-2 border-dashed border-slate-200 hover:border-indigo-400 rounded-2xl p-4 text-center transition-colors relative bg-slate-50/50">
+                                        <input
+                                            type="file"
+                                            accept=".pdf,.doc,.docx"
+                                            onChange={(e) => setFile(e.target.files[0])}
+                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                            required
+                                        />
+                                        <p className="text-xs text-slate-600 font-medium">
+                                            {file ? `✅ Selected: ${file.name}` : "Drag and drop your file here, or browse local paths"}
+                                        </p>
+                                        <p className="text-[10px] text-slate-400 mt-1">Supports PDF, DOC, DOCX files up to 10MB</p>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                                        Cover Letter Statement
+                                    </label>
+                                    <textarea
+                                        value={coverLetter}
+                                        onChange={(e) => setCoverLetter(e.target.value)}
+                                        placeholder="Outline your background skill sets and technical competencies..."
+                                        className="w-full border border-slate-200 text-xs p-3 rounded-xl h-24 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all bg-slate-50/30"
+                                    />
+                                </div>
+                                <div className="pt-2 flex space-x-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => { setSelectedJob(null); setFile(null); }}
+                                        className="w-1/3 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs py-2.5 px-4 rounded-xl transition-colors"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={isSubmitting}
+                                        className="w-2/3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs py-2.5 px-4 rounded-xl shadow-sm transition-all disabled:opacity-50"
+                                    >
+                                        {isSubmitting ? "Transmitting Profile Data..." : "Submit Profile Application"}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )}
+            </main>
         </div>
     );
 };
+
+export default StudentDashboard;

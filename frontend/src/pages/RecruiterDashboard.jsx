@@ -1,151 +1,153 @@
-import React, { useState, useEffect } from 'react';
-import { PlusCircle, Briefcase, Users, FileText, MapPin, Building } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
 
-export const RecruiterDashboard = () => {
-    const [jobs, setJobs] = useState([]);
-    const [title, setTitle] = useState('');
-    const [company, setCompany] = useState('');
-    const [location, setLocation] = useState('');
-    const [salary, setSalary] = useState('');
-    const [type, setType] = useState('Full-time');
+const RecruiterDashboard = () => {
+    const [applications, setApplications] = useState([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const fetchJobs = async () => {
+        const fetchIncomingApplications = async () => {
             try {
-                const response = await fetch('/api/jobs');
-                if (response.ok) {
-                    const data = await response.json();
-                    setJobs(data);
-                }
-            } catch (error) {
-                console.error("Error fetching jobs:", error);
+                const response = await axios.get('https://hipro-backend.onrender.com/api/jobs/applications');
+                setApplications(Array.isArray(response.data) ? response.data : []);
+            } catch (err) {
+                console.error("Failed to compile target app matrix:", err);
             } finally {
                 setLoading(false);
             }
         };
-        fetchJobs();
+        fetchIncomingApplications();
     }, []);
 
-    const handlePostJob = async (e) => {
-        e.preventDefault();
-        if (!title || !company || !location) {
-            alert("Please fill in Title, Company, and Location fields.");
-            return;
-        }
-
-        const jobData = { title, company, location, salary: salary || 'Competitive Pay', type, status: 'Active' };
-
+    const updateApplicationStatus = async (id, targetStatus) => {
         try {
-            const response = await fetch('/api/jobs', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(jobData),
+            const response = await axios.patch(`https://hipro-backend.onrender.com/api/jobs/applications/${id}/status`, {
+                status: targetStatus
             });
-
-            if (response.ok) {
-                const newJob = await response.json();
-                setJobs([newJob, ...jobs]);
-                setTitle('');
-                setCompany('');
-                setLocation('');
-                setSalary('');
-                setType('Full-time');
-            }
-        } catch (error) {
-            console.error("Error connecting to backend API:", error);
+            setApplications(prev =>
+                prev.map(item => item._id === id ? { ...item, status: response.data.status } : item)
+            );
+        } catch (err) {
+            console.error(err);
+            alert("Could not process structural status modification.");
         }
     };
 
-    return (
-        <div className="max-w-6xl mx-auto px-4 py-10">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center space-x-4">
-                    <div className="p-3 bg-blue-50 text-blue-600 rounded-xl"><Briefcase size={24} /></div>
-                    <div>
-                        <p className="text-sm font-medium text-slate-500">Active Postings</p>
-                        <h3 className="text-2xl font-black text-slate-900">{jobs.length}</h3>
-                    </div>
-                </div>
-                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center space-x-4">
-                    <div className="p-3 bg-green-50 text-green-600 rounded-xl"><Users size={24} /></div>
-                    <div>
-                        <p className="text-sm font-medium text-slate-500">Verified Applicants</p>
-                        <h3 className="text-2xl font-black text-slate-900">0</h3>
-                    </div>
-                </div>
-                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center space-x-4">
-                    <div className="p-3 bg-purple-50 text-purple-600 rounded-xl"><FileText size={24} /></div>
-                    <div>
-                        <p className="text-sm font-medium text-slate-500">Interviews Settled</p>
-                        <h3 className="text-2xl font-black text-slate-900">0</h3>
-                    </div>
+    // Derived Analytic Metric States
+    const totalCount = applications.length;
+    const acceptedCount = applications.filter(a => a.status === 'Accepted').length;
+    const pendingCount = applications.filter(a => a.status === 'Pending').length;
+
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+                <div className="text-center">
+                    <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                    <p className="mt-4 text-xs font-semibold text-slate-500 tracking-wider uppercase">Compiling Application Indices...</p>
                 </div>
             </div>
+        );
+    }
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm h-fit">
-                    <h2 className="text-xl font-black text-slate-900 mb-4 flex items-center gap-2">
-                        <PlusCircle size={20} className="text-blue-600" /> Post a New Job
-                    </h2>
-                    <form onSubmit={handlePostJob} className="space-y-4">
-                        <div>
-                            <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">Job Title *</label>
-                            <input type="text" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm" placeholder="e.g. Software Engineer" value={title} onChange={(e) => setTitle(e.target.value)} required />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">Company Name *</label>
-                            <input type="text" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm" placeholder="e.g. Google" value={company} onChange={(e) => setCompany(e.target.value)} required />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">Location *</label>
-                            <input type="text" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm" placeholder="e.g. Chennai, TN" value={location} onChange={(e) => setLocation(e.target.value)} required />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">Salary Range</label>
-                            <input type="text" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm" placeholder="e.g. ₹12,00,000" value={salary} onChange={(e) => setSalary(e.target.value)} />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">Job Setting Tier</label>
-                            <select className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm" value={type} onChange={(e) => setType(e.target.value)}>
-                                <option value="Full-time">Full-time</option>
-                                <option value="Part-time">Part-time</option>
-                                <option value="Remote">Remote</option>
-                                <option value="Hybrid">Hybrid</option>
-                            </select>
-                        </div>
-                        <button type="submit" className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-sm shadow-sm">
-                            Publish Posting
-                        </button>
-                    </form>
+    return (
+        <div className="min-h-screen bg-slate-50/50 p-6 md:p-10">
+            <div className="max-w-6xl mx-auto">
+                {/* Dashboard Heading Architecture */}
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8 pb-4 border-b border-slate-200/60">
+                    <div>
+                        <h1 className="text-2xl font-black text-slate-900 tracking-tight sm:text-3xl">Applicant Track Intelligence</h1>
+                        <p className="text-xs text-slate-400 font-medium mt-1">Review applicant portfolios, change hiring statuses, and manage resumes.</p>
+                    </div>
                 </div>
 
-                <div className="lg:col-span-2 bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
-                    <h2 className="text-xl font-black text-slate-900 mb-6">Your Active Openings</h2>
-                    {loading ? (
-                        <div className="text-center py-6 text-slate-400 font-medium">Loading records matrix...</div>
-                    ) : jobs.length === 0 ? (
-                        <div className="text-center py-12 text-slate-400 border border-dashed rounded-xl">No active jobs published yet.</div>
-                    ) : (
-                        <div className="space-y-4">
-                            {jobs.map((job) => (
-                                <div key={job._id} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100">
-                                    <div>
-                                        <h4 className="font-bold text-slate-900">{job.title}</h4>
-                                        <div className="flex gap-3 text-xs text-slate-500 mt-1 font-medium">
-                                            <span className="flex items-center gap-0.5"><Building size={12} /> {job.company}</span>
-                                            <span className="flex items-center gap-0.5"><MapPin size={12} /> {job.location}</span>
-                                        </div>
-                                    </div>
-                                    <span className="px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700">
-                                        {job.status || 'Active'}
-                                    </span>
-                                </div>
-                            ))}
-                        </div>
-                    )}
+                {/* Analytical Counter Matrix Overview Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-8">
+                    <div className="bg-white border border-slate-100 p-5 rounded-2xl shadow-sm">
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Evaluated Pool</p>
+                        <p className="text-2xl font-black text-slate-800 mt-1">{totalCount}</p>
+                    </div>
+                    <div className="bg-white border border-slate-100 p-5 rounded-2xl shadow-sm">
+                        <p className="text-xs font-bold text-emerald-500 uppercase tracking-wider">Approved Candidates</p>
+                        <p className="text-2xl font-black text-slate-800 mt-1">{acceptedCount}</p>
+                    </div>
+                    <div className="bg-white border border-slate-100 p-5 rounded-2xl shadow-sm">
+                        <p className="text-xs font-bold text-amber-500 uppercase tracking-wider">Pending Decisions</p>
+                        <p className="text-2xl font-black text-slate-800 mt-1">{pendingCount}</p>
+                    </div>
                 </div>
+
+                {/* Data Presentation Table Context */}
+                {totalCount === 0 ? (
+                    <div className="bg-white border border-slate-100 rounded-3xl p-12 text-center shadow-sm">
+                        <p className="text-sm font-semibold text-slate-500">No applicant file submittals detected within database architecture.</p>
+                    </div>
+                ) : (
+                    <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left border-collapse">
+                                <thead>
+                                    <tr className="bg-slate-50/70 border-b border-slate-100 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                                        <th className="p-4">Target Role</th>
+                                        <th className="p-4">Cover Statement</th>
+                                        <th className="p-4">Document File</th>
+                                        <th className="p-4">Pipeline Status</th>
+                                        <th className="p-4 text-center">Operational Flags</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100 text-xs">
+                                    {applications.map((app) => (
+                                        <tr key={app._id} className="hover:bg-slate-50/40 transition-colors">
+                                            <td className="p-4 font-bold text-slate-800">
+                                                {app.jobId?.title || <span className="text-slate-400 font-normal italic">Archived Listing</span>}
+                                            </td>
+                                            <td className="p-4 text-slate-500 max-w-xs truncate font-medium">
+                                                {app.coverLetter || <span className="text-slate-300 italic font-normal">Omitted</span>}
+                                            </td>
+                                            <td className="p-4">
+                                                <a
+                                                    href={`https://hipro-backend.onrender.com/${app.resumeUrl}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="inline-flex items-center font-bold text-indigo-600 hover:text-indigo-800 transition-colors bg-indigo-50/50 px-2.5 py-1 rounded-lg"
+                                                >
+                                                    View Profile ↗
+                                                </a>
+                                            </td>
+                                            <td className="p-4">
+                                                <span className={`inline-flex px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider
+                                                    ${app.status === 'Accepted' ? 'bg-emerald-50 text-emerald-700' : ''}
+                                                    ${app.status === 'Rejected' ? 'bg-rose-50 text-rose-700' : ''}
+                                                    ${app.status === 'Pending' ? 'bg-amber-50 text-amber-700' : ''}
+                                                `}>
+                                                    {app.status}
+                                                </span>
+                                            </td>
+                                            <td className="p-4 text-center space-x-2">
+                                                <button
+                                                    onClick={() => updateApplicationStatus(app._id, 'Accepted')}
+                                                    disabled={app.status === 'Accepted'}
+                                                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded-xl transition duration-150 text-[11px] disabled:opacity-30 disabled:pointer-events-none"
+                                                >
+                                                    Accept
+                                                </button>
+                                                <button
+                                                    onClick={() => updateApplicationStatus(app._id, 'Rejected')}
+                                                    disabled={app.status === 'Rejected'}
+                                                    className="bg-rose-600 hover:bg-rose-700 text-white font-bold px-3 py-1.5 rounded-xl transition duration-150 text-[11px] disabled:opacity-30 disabled:pointer-events-none"
+                                                >
+                                                    Reject
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );
 };
+
+export default RecruiterDashboard;

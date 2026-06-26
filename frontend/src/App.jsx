@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { StudentDashboard } from './pages/StudentDashboard';
-import { RecruiterDashboard } from './pages/RecruiterDashboard';
+// Corrected to default imports to match our premium dashboard page files
+import StudentDashboard from './pages/StudentDashboard';
+import RecruiterDashboard from './pages/RecruiterDashboard';
 import { Shield, Lock, Mail, User, ArrowRight, LogOut, Database } from 'lucide-react';
 
 export default function App() {
@@ -61,7 +62,8 @@ export default function App() {
 
       if (response.ok) {
         const data = await response.json();
-        saveSessionAndRoute({ name, role: data.role });
+        // Preserving backend parameters exactly
+        saveSessionAndRoute({ name, role: data.role, token: data.token, id: data.id || data._id });
       } else {
         const errData = await response.json();
         setAuthError(errData.message || 'Registration failed.');
@@ -107,7 +109,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans antialiased text-slate-900">
+    <div className="min-h-screen bg-slate-50 font-sans antialiased text-slate-900 selection:bg-blue-500 selection:text-white">
       <nav className="bg-white border-b border-slate-100 sticky top-0 z-50 px-6 py-4 flex justify-between items-center shadow-sm">
         <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigateTo(currentUser ? currentUser.role : 'landing')}>
           <Shield className="text-blue-600" size={24} />
@@ -133,7 +135,7 @@ export default function App() {
 
       <main>
         {screen === 'landing' && (
-          <div className="max-w-4xl mx-auto text-center py-24 px-4 fade-in">
+          <div className="max-w-4xl mx-auto text-center py-24 px-4">
             <span className="bg-blue-50 text-blue-700 text-xs px-3 py-1.5 rounded-full font-bold uppercase tracking-widest">Global Commercial Platform</span>
             <h1 className="text-5xl font-black text-slate-900 mt-6 mb-4 tracking-tight">Welcome to HiPro.</h1>
             <p className="text-lg text-slate-500 max-w-xl mx-auto mb-10">The premium architecture deployment portal built completely for 100% verified careers and secure global connections.</p>
@@ -149,7 +151,7 @@ export default function App() {
         )}
 
         {screen === 'signup' && (
-          <div className="max-w-md mx-auto my-16 bg-white p-8 rounded-3xl border border-slate-100 shadow-xl fade-in">
+          <div className="max-w-md mx-auto my-16 bg-white p-8 rounded-3xl border border-slate-100 shadow-xl">
             <h2 className="text-2xl font-black mb-2">Create Account</h2>
             <p className="text-slate-400 text-sm mb-6">Select your global role tier to register.</p>
             {authError && <div className="p-3 bg-red-50 text-red-600 text-xs font-bold rounded-xl mb-4">{authError}</div>}
@@ -178,7 +180,7 @@ export default function App() {
         )}
 
         {screen === 'login' && (
-          <div className="max-w-md mx-auto my-16 bg-white p-8 rounded-3xl border border-slate-100 shadow-xl fade-in">
+          <div className="max-w-md mx-auto my-16 bg-white p-8 rounded-3xl border border-slate-100 shadow-xl">
             <h2 className="text-2xl font-black mb-2">Secure Login</h2>
             <p className="text-slate-400 text-sm mb-6">Input administrative or user credentials below.</p>
             {authError && <div className="p-3 bg-red-50 text-red-600 text-xs font-bold rounded-xl mb-4">{authError}</div>}
@@ -198,11 +200,12 @@ export default function App() {
           </div>
         )}
 
-        {screen === 'student' && <StudentDashboard />}
-        {screen === 'recruiter' && <RecruiterDashboard />}
+        {/* Passing session context cleanly down to premium dashboard files */}
+        {screen === 'student' && <StudentDashboard sessionUser={currentUser} />}
+        {screen === 'recruiter' && <RecruiterDashboard sessionUser={currentUser} />}
 
         {screen === 'admin' && (
-          <div className="max-w-6xl mx-auto px-4 py-10 fade-in">
+          <div className="max-w-6xl mx-auto px-4 py-10">
             <div className="bg-slate-900 p-8 rounded-3xl text-white mb-10 shadow-lg border border-slate-800">
               <div className="flex items-center gap-3 mb-2">
                 <Database className="text-blue-400" size={28} />

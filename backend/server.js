@@ -6,7 +6,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 import authRoutes from './routes/auth.js';
-import jobRoutes from './routes/jobs.js';
+import jobRoutes from './routes/jobs.js'; // This now handles everything
 
 dotenv.config();
 const app = express();
@@ -17,15 +17,15 @@ const __dirname = path.dirname(__filename);
 app.use(cors());
 app.use(express.json());
 
-// API Endpoints
+// Routes
 app.use('/api/auth', authRoutes);
-app.use('/api/jobs', jobRoutes);
+app.use('/api/jobs', jobRoutes); // Now serves both jobs and applications
 
-// Global Production Deployment Engine - CORRECTED
+// Static Files
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 if (process.env.NODE_ENV === 'production') {
-    // Look up one level from 'backend', then into 'frontend/dist'
     app.use(express.static(path.join(__dirname, '..', 'frontend', 'dist')));
-
     app.get('*', (req, res) => {
         res.sendFile(path.join(__dirname, '..', 'frontend', 'dist', 'index.html'));
     });
@@ -36,7 +36,7 @@ const MONGO_URL = process.env.MONGO_URL || "mongodb://127.0.0.1:27017/hipro";
 
 mongoose.connect(MONGO_URL)
     .then(() => {
-        console.log("⚡ [Database] Connected successfully to MongoDB");
-        app.listen(PORT, () => console.log(`🚀 [Server] Global system active on port ${PORT}`));
+        console.log("⚡ [Database] Connected");
+        app.listen(PORT, () => console.log(`🚀 [Server] Active on ${PORT}`));
     })
     .catch(err => console.error("❌ [Database] Connection failure:", err));

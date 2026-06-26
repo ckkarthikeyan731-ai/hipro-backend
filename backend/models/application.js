@@ -1,10 +1,12 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const applicationSchema = new mongoose.Schema({
     jobId: { type: mongoose.Schema.Types.ObjectId, ref: 'Job', required: true },
     studentId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     resumeUrl: { type: String, required: true },
-    status: { type: String, enum: ['pending', 'accepted'], default: 'pending' }
-}, { timestamps: true });
+    coverLetter: { type: String },
+    status: { type: String, enum: ['Pending', 'Accepted', 'Rejected'], default: 'Pending' },
+    appliedAt: { type: Date, default: Date.now }
+});
 
-module.exports = mongoose.model('Application', applicationSchema);
+export default mongoose.model('Application', applicationSchema);

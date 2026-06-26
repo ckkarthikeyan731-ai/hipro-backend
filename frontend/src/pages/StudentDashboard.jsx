@@ -1,41 +1,46 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import API_URL from '../config.js'; // Routes directly to your live backend domain
+import API_URL from '../config.js'; // Routes to your backend port 10000 domain link
 
 const StudentDashboard = () => {
-    // Core Application States
+    // Core Application Array and Loading States
     const [jobs, setJobs] = useState([]);
     const [myApplications, setMyApplications] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('browse'); // 'browse' or 'tracking'
 
-    // Modal & Multipart Upload States
+    // Form Overlay Control States
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isAuthModalOpen, setIsAuthModalOpen] = useState(false); // Clean visual fallback overlay
     const [selectedJobId, setSelectedJobId] = useState(null);
     const [coverLetter, setCoverLetter] = useState('');
     const [resumeFile, setResumeFile] = useState(null);
     const [submitLoading, setSubmitLoading] = useState(false);
 
-    // Fetch initial data completely silently on mount
+    // Helper to scan browser memory for any valid session key layout variations
+    const getSessionToken = () => {
+        return localStorage.getItem('token') || localStorage.getItem('authToken');
+    };
+
+    // Load master listings completely silently on component instantiation
     useEffect(() => {
         const fetchDashboardData = async () => {
             try {
-                // 1. Fetch available jobs registry (Public endpoint - no token needed)
+                // Fetch public job board indexes
                 const jobsResponse = await axios.get(`${API_URL}/jobs`);
                 setJobs(Array.isArray(jobsResponse.data) ? jobsResponse.data : []);
 
-                // 2. Fetch student's applications ledger only if a token exists
-                const token = localStorage.getItem('token');
-                if (token) {
+                // Fetch student application history silently if a valid session exists
+                const trackingToken = getSessionToken();
+                if (trackingToken) {
                     const appsResponse = await axios.get(`${API_URL}/jobs/my-applications`, {
-                        headers: { Authorization: `Bearer ${token}` }
+                        headers: { Authorization: `Bearer ${trackingToken}` }
                     });
                     setMyApplications(Array.isArray(appsResponse.data) ? appsResponse.data : []);
                 }
             } catch (err) {
-                // All background errors are logged silently to the console—never alerting the user
-                console.error("Background data synchronization handled silently:", err);
+                console.error("Data synchronization bypassed silently:", err);
             } finally {
                 setLoading(false);
             }
@@ -43,26 +48,26 @@ const StudentDashboard = () => {
         fetchDashboardData();
     }, []);
 
-    // Client-side text matrix filtering
+    // Text string matrix search filter parsing
     const filteredJobs = jobs.filter(job =>
         job.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         job.company?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         job.location?.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
-    // Open upload form modal with an explicit user check on click
+    // Prompt user to open attachment forms with smooth error handling instead of alerts
     const openApplyModal = (jobId) => {
-        const token = localStorage.getItem('token');
-        if (!token) {
-            alert("Please log in to your student account to submit applications.");
-            window.location.href = '#login';
+        const activeToken = getSessionToken();
+        if (!activeToken) {
+            setSelectedJobId(jobId);
+            setIsAuthModalOpen(true); // Open elegant sign-in warning box overlay cleanly
             return;
         }
         setSelectedJobId(jobId);
         setIsModalOpen(true);
     };
 
-    // Process multipart form attachment uploads to backend disk storage
+    // Process multipart file attachment uploads to server disk storage arrays
     const handleFormSubmit = async (e) => {
         e.preventDefault();
         if (!resumeFile) {
@@ -72,7 +77,7 @@ const StudentDashboard = () => {
 
         setSubmitLoading(true);
         try {
-            const token = localStorage.getItem('token');
+            const uploadToken = getSessionToken();
 
             const formData = new FormData();
             formData.append('jobId', selectedJobId);
@@ -81,7 +86,7 @@ const StudentDashboard = () => {
 
             const response = await axios.post(`${API_URL}/jobs/apply`, formData, {
                 headers: {
-                    Authorization: `Bearer ${token}`,
+                    Authorization: `Bearer ${uploadToken}`,
                     'Content-Type': 'multipart/form-data'
                 }
             });
@@ -92,14 +97,14 @@ const StudentDashboard = () => {
                 setCoverLetter('');
                 setResumeFile(null);
 
-                // Re-fetch tracking matrix records cleanly
+                // Refresh tracking records list
                 const appsResponse = await axios.get(`${API_URL}/jobs/my-applications`, {
-                    headers: { Authorization: `Bearer ${token}` }
+                    headers: { Authorization: `Bearer ${uploadToken}` }
                 });
                 setMyApplications(Array.isArray(appsResponse.data) ? appsResponse.data : []);
             }
         } catch (err) {
-            console.error("Application placement transaction failed:", err);
+            console.error("Application routing failed:", err);
             alert(err.response?.data?.message || "Failed to finalize application routing.");
         } finally {
             setSubmitLoading(false);
@@ -119,7 +124,7 @@ const StudentDashboard = () => {
 
     return (
         <div className="min-h-screen bg-slate-50/50 relative">
-            {/* Dark Top Hero Section */}
+            {/* Top Navigation Dark Hero Section banner */}
             <div className="bg-[#0f172a] text-white px-6 py-16 md:px-12 md:py-20">
                 <div className="max-w-6xl mx-auto">
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
@@ -133,7 +138,7 @@ const StudentDashboard = () => {
                             </p>
                         </div>
 
-                        {/* Interactive View Toggles */}
+                        {/* Interactive Section Tab View Switchers */}
                         <div className="flex bg-slate-800/40 p-1.5 rounded-2xl border border-slate-700/30 self-start md:self-center whitespace-nowrap">
                             <button
                                 onClick={() => setActiveTab('browse')}
@@ -170,11 +175,11 @@ const StudentDashboard = () => {
                 </div>
             </div>
 
-            {/* Render Output Content Spaces */}
+            {/* Core Workspace Output Containers */}
             <div className="max-w-6xl mx-auto p-6 md:p-12 -mt-8">
 
                 {activeTab === 'browse' ? (
-                    /* VIEW PANEL A: BROWSE OPEN REPOS */
+                    /* PANEL 1: LIST ACTIVE JOBS FEED */
                     filteredJobs.length === 0 ? (
                         <div className="bg-white border border-slate-100 rounded-3xl p-16 text-center shadow-sm max-w-2xl mx-auto">
                             <p className="text-sm font-bold text-slate-800">No Matched Records Found</p>
@@ -224,7 +229,7 @@ const StudentDashboard = () => {
                         </div>
                     )
                 ) : (
-                    /* VIEW PANEL B: TRACKING MONITOR INTERFACE */
+                    /* PANEL 2: PIPELINE TRACKING INDEX TABLE */
                     myApplications.length === 0 ? (
                         <div className="bg-white border border-slate-100 rounded-3xl p-16 text-center shadow-sm max-w-2xl mx-auto">
                             <p className="text-sm font-bold text-slate-800">No Applications Filed Yet</p>
@@ -272,10 +277,10 @@ const StudentDashboard = () => {
                 )}
             </div>
 
-            {/* SINGLE ATTACHMENT MODAL FORM COMPONENT */}
+            {/* POPUP MODAL A: MULTIPART RESUME FILE UPLOAD MODULE */}
             {isModalOpen && (
                 <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-                    <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-xl w-full max-w-md">
+                    <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-xl w-full max-w-md animate-scaleUp">
                         <div className="flex justify-between items-center mb-6">
                             <h2 className="text-base font-black text-slate-900 tracking-tight">Complete Application Details</h2>
                             <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 font-bold text-sm">✕</button>
@@ -312,6 +317,37 @@ const StudentDashboard = () => {
                                 {submitLoading ? "Uploading Attachments..." : "Submit Completed File Ledger"}
                             </button>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* POPUP MODAL B: INLINE RE-AUTH WARNING OVERLAY PANEL */}
+            {isAuthModalOpen && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                    <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-xl w-full max-w-sm text-center">
+                        <div className="mx-auto w-12 h-12 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-500 border border-amber-100 mb-4">
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m0-6v2m0-8a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        </div>
+                        <h3 className="font-black text-slate-900 text-base tracking-tight">Authentication Required</h3>
+                        <p className="text-xs text-slate-400 font-medium mt-2 px-2">
+                            Please log in to your student profile credentials register to submit dynamic binary resume applications.
+                        </p>
+                        <div className="mt-6 space-y-2">
+                            <button
+                                onClick={() => { window.location.href = '#login'; window.location.reload(); }}
+                                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-4 rounded-xl text-xs transition duration-150 shadow-md"
+                            >
+                                Go to Secure Login Screen
+                            </button>
+                            <button
+                                onClick={() => setIsAuthModalOpen(false)}
+                                className="w-full bg-slate-50 hover:bg-slate-100 text-slate-500 font-bold py-2.5 px-4 rounded-xl text-xs transition duration-150 border border-slate-100"
+                            >
+                                Return to Board Feed
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

@@ -5,38 +5,49 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
+// Import our integrated application routes
 import authRoutes from './routes/auth.js';
-import jobRoutes from './routes/jobs.js'; // This now handles everything
+import jobRoutes from './routes/jobs.js';
 
 dotenv.config();
-const app = express();
 
+const app = express();
+const PORT = process.env.PORT || 5000;
+
+// Resolve filenames and paths cleanly for ES Modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-app.use(cors());
+// Global Middleware Configs
+app.use(cors({
+    origin: '*',
+    credentials: true
+}));
 app.use(express.json());
 
-// Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/jobs', jobRoutes); // Now serves both jobs and applications
-
-// Static Files
+// Serve uploaded document attachments statically from disk storage
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-if (process.env.NODE_ENV === 'production') {
-    app.use(express.static(path.join(__dirname, '..', 'frontend', 'dist')));
-    app.get('*', (req, res) => {
-        res.sendFile(path.join(__dirname, '..', 'frontend', 'dist', 'index.html'));
-    });
-}
+// Serve your pre-compiled frontend asset files statically
+app.use(express.static(path.join(__dirname, '../frontend/dist')));
 
-const PORT = process.env.PORT || 10000;
-const MONGO_URL = process.env.MONGO_URL || "mongodb://127.0.0.1:27017/hipro";
+// Explicit API Route Mappings
+app.use('/api/auth', authRoutes);
+app.use('/api/jobs', jobRoutes);
 
-mongoose.connect(MONGO_URL)
+// Fallback Route: Direct all global web browser traffic to the single-page application entry point
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
+});
+
+// Connect to MongoDB Atlas and initialize the global cluster listen block
+mongoose.connect(process.env.MONGO_URI || process.env.MONGODB_URI)
     .then(() => {
-        console.log("⚡ [Database] Connected");
-        app.listen(PORT, () => console.log(`🚀 [Server] Active on ${PORT}`));
+        console.log("Database Connection Verified & Mounted Status: Active");
+        app.listen(PORT, () => {
+            console.log(`HiPro Global Production Engine active on routing port: ${PORT}`);
+        });
     })
-    .catch(err => console.error("❌ [Database] Connection failure:", err));
+    .catch((err) => {
+        console.error("Critical Database initialization failure:", err);
+    });

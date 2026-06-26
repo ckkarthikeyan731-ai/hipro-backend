@@ -1,34 +1,32 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import API_URL from '../config.js'; // Dynamically routes to your port 10000 backend link
+import API_URL from '../config.js'; // Routes directly to your live backend domain
 
 const StudentDashboard = () => {
+    // Core Application States
     const [jobs, setJobs] = useState([]);
     const [myApplications, setMyApplications] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [loading, setLoading] = useState(true);
-    const [applying, setApplying] = useState(null);
-    const [activeTab, setActiveTab] = useState('browse');
+    const [activeTab, setActiveTab] = useState('browse'); // 'browse' or 'tracking'
 
-    // Modal Control States for Resume Uploading
+    // Modal & Multipart Upload States
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedJobId, setSelectedJobId] = useState(null);
     const [coverLetter, setCoverLetter] = useState('');
     const [resumeFile, setResumeFile] = useState(null);
     const [submitLoading, setSubmitLoading] = useState(false);
 
-    // Fetch jobs registry and student's personal application history ledger
-    // Fetch jobs registry silently without throwing raw browser popups on load
+    // Fetch initial data completely silently on mount
     useEffect(() => {
         const fetchDashboardData = async () => {
             try {
-                const token = localStorage.getItem('token');
-
-                // Fetch public jobs list (Does not require login token)
+                // 1. Fetch available jobs registry (Public endpoint - no token needed)
                 const jobsResponse = await axios.get(`${API_URL}/jobs`);
                 setJobs(Array.isArray(jobsResponse.data) ? jobsResponse.data : []);
 
-                // Only fetch applications backlog silently if a token exists
+                // 2. Fetch student's applications ledger only if a token exists
+                const token = localStorage.getItem('token');
                 if (token) {
                     const appsResponse = await axios.get(`${API_URL}/jobs/my-applications`, {
                         headers: { Authorization: `Bearer ${token}` }
@@ -36,7 +34,8 @@ const StudentDashboard = () => {
                     setMyApplications(Array.isArray(appsResponse.data) ? appsResponse.data : []);
                 }
             } catch (err) {
-                console.error("Dashboard database indices fetch bypassed silently:", err);
+                // All background errors are logged silently to the console—never alerting the user
+                console.error("Background data synchronization handled silently:", err);
             } finally {
                 setLoading(false);
             }
@@ -44,18 +43,18 @@ const StudentDashboard = () => {
         fetchDashboardData();
     }, []);
 
-    // Filter jobs accurately based on search input
+    // Client-side text matrix filtering
     const filteredJobs = jobs.filter(job =>
         job.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         job.company?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         job.location?.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
-    // Open the modal form instead of submitting immediately
+    // Open upload form modal with an explicit user check on click
     const openApplyModal = (jobId) => {
         const token = localStorage.getItem('token');
         if (!token) {
-            alert("Session expired. Please log in again.");
+            alert("Please log in to your student account to submit applications.");
             window.location.href = '#login';
             return;
         }
@@ -63,11 +62,11 @@ const StudentDashboard = () => {
         setIsModalOpen(true);
     };
 
-    // Handle Multipart Form File Submissions
+    // Process multipart form attachment uploads to backend disk storage
     const handleFormSubmit = async (e) => {
         e.preventDefault();
         if (!resumeFile) {
-            alert("Please upload your professional resume file attachment.");
+            alert("Please attach a valid resume document file (PDF/DOCX).");
             return;
         }
 
@@ -75,16 +74,15 @@ const StudentDashboard = () => {
         try {
             const token = localStorage.getItem('token');
 
-            // Create FormData object to transport dynamic binary files over HTTP routes cleanly
             const formData = new FormData();
             formData.append('jobId', selectedJobId);
             formData.append('coverLetter', coverLetter);
-            formData.append('resume', resumeFile); // Matches your backend single upload middleware key name
+            formData.append('resume', resumeFile);
 
             const response = await axios.post(`${API_URL}/jobs/apply`, formData, {
                 headers: {
                     Authorization: `Bearer ${token}`,
-                    'Content-Type': 'multipart/form-data' // Tells your server to engage multer parsing fields
+                    'Content-Type': 'multipart/form-data'
                 }
             });
 
@@ -94,15 +92,15 @@ const StudentDashboard = () => {
                 setCoverLetter('');
                 setResumeFile(null);
 
-                // Refresh local applications tracking records matrix counter
+                // Re-fetch tracking matrix records cleanly
                 const appsResponse = await axios.get(`${API_URL}/jobs/my-applications`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 setMyApplications(Array.isArray(appsResponse.data) ? appsResponse.data : []);
             }
         } catch (err) {
-            console.error("Application placement failed:", err);
-            alert(err.response?.data?.message || "Failed to submit application.");
+            console.error("Application placement transaction failed:", err);
+            alert(err.response?.data?.message || "Failed to finalize application routing.");
         } finally {
             setSubmitLoading(false);
         }
@@ -135,6 +133,7 @@ const StudentDashboard = () => {
                             </p>
                         </div>
 
+                        {/* Interactive View Toggles */}
                         <div className="flex bg-slate-800/40 p-1.5 rounded-2xl border border-slate-700/30 self-start md:self-center whitespace-nowrap">
                             <button
                                 onClick={() => setActiveTab('browse')}
@@ -151,6 +150,7 @@ const StudentDashboard = () => {
                         </div>
                     </div>
 
+                    {/* Search Field Interface */}
                     {activeTab === 'browse' && (
                         <div className="mt-8 max-w-md relative">
                             <input
@@ -160,17 +160,25 @@ const StudentDashboard = () => {
                                 placeholder="software developer"
                                 className="w-full bg-slate-800/50 border border-slate-700/50 focus:border-indigo-500 focus:bg-slate-900 rounded-2xl pl-5 pr-12 py-3.5 text-sm font-medium text-white placeholder-slate-500 transition duration-150 outline-none shadow-inner"
                             />
+                            <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500">
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                </svg>
+                            </div>
                         </div>
                     )}
                 </div>
             </div>
 
-            {/* Results Display Grid */}
+            {/* Render Output Content Spaces */}
             <div className="max-w-6xl mx-auto p-6 md:p-12 -mt-8">
+
                 {activeTab === 'browse' ? (
+                    /* VIEW PANEL A: BROWSE OPEN REPOS */
                     filteredJobs.length === 0 ? (
                         <div className="bg-white border border-slate-100 rounded-3xl p-16 text-center shadow-sm max-w-2xl mx-auto">
                             <p className="text-sm font-bold text-slate-800">No Matched Records Found</p>
+                            <p className="text-xs text-slate-400 mt-1 font-medium">Try modifying your search keywords or check back later.</p>
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -189,7 +197,12 @@ const StudentDashboard = () => {
                                                 </span>
                                             </div>
                                             <div className="mt-4 flex items-center gap-4 text-slate-400 font-medium text-xs">
-                                                <div>{job.location}</div>
+                                                <div className="flex items-center gap-1">
+                                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                                    </svg>
+                                                    {job.location}
+                                                </div>
                                                 {job.salary && <div className="font-bold text-slate-600">₹ {job.salary}</div>}
                                             </div>
                                         </div>
@@ -199,7 +212,7 @@ const StudentDashboard = () => {
                                                 disabled={hasApplied}
                                                 className={`w-full font-bold py-2.5 px-4 rounded-xl transition duration-150 text-xs tracking-wide shadow-sm
                                                     ${hasApplied
-                                                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/50 cursor-not-allowed'
+                                                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/50 cursor-not-allowed shadow-none'
                                                         : 'bg-indigo-600 hover:bg-indigo-700 text-white'}`}
                                             >
                                                 {hasApplied ? "✓ Application Submitted" : "Apply Position"}
@@ -211,41 +224,58 @@ const StudentDashboard = () => {
                         </div>
                     )
                 ) : (
-                    /* TAB 2: APPLICATIONS STATUS TRACKING MONITOR */
-                    <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-                        <table className="w-full text-left border-collapse">
-                            <thead>
-                                <tr className="bg-slate-50/70 border-b border-slate-100 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                                    <th className="p-4 pl-6">Company / Position</th>
-                                    <th className="p-4">Submission Date</th>
-                                    <th className="p-4 pr-6 text-center">Status Flag</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-700">
-                                {myApplications.map((app) => (
-                                    <tr key={app._id}>
-                                        <td className="p-4 pl-6">
-                                            <p className="font-bold text-slate-800">{app.jobId?.title || "Archived Role"}</p>
-                                            <p className="text-[10px] text-indigo-600 font-bold">{app.jobId?.company || "N/A"}</p>
-                                        </td>
-                                        <td className="p-4 text-slate-400">{app.createdAt ? new Date(app.createdAt).toLocaleDateString() : 'Recent'}</td>
-                                        <td className="p-4 pr-6 text-center">
-                                            <span className="inline-flex px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200/40">
-                                                {app.status || 'Pending'}
-                                            </span>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                    /* VIEW PANEL B: TRACKING MONITOR INTERFACE */
+                    myApplications.length === 0 ? (
+                        <div className="bg-white border border-slate-100 rounded-3xl p-16 text-center shadow-sm max-w-2xl mx-auto">
+                            <p className="text-sm font-bold text-slate-800">No Applications Filed Yet</p>
+                            <p className="text-xs text-slate-400 mt-1 font-medium">Active listings will appear here once submitted.</p>
+                        </div>
+                    ) : (
+                        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left border-collapse">
+                                    <thead>
+                                        <tr className="bg-slate-50/70 border-b border-slate-100 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                                            <th className="p-4 pl-6">Company / Position</th>
+                                            <th className="p-4">Location</th>
+                                            <th className="p-4">Submission Date</th>
+                                            <th className="p-4 pr-6 text-center">Status Flag</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-700">
+                                        {myApplications.map((app) => (
+                                            <tr key={app._id} className="hover:bg-slate-50/30 transition-colors">
+                                                <td className="p-4 pl-6">
+                                                    <p className="font-bold text-slate-800">{app.jobId?.title || "Archived Role"}</p>
+                                                    <p className="text-[10px] font-bold text-indigo-600 mt-0.5">{app.jobId?.company || "N/A"}</p>
+                                                </td>
+                                                <td className="p-4 text-slate-500">{app.jobId?.location || "N/A"}</td>
+                                                <td className="p-4 text-slate-400">
+                                                    {app.createdAt ? new Date(app.createdAt).toLocaleDateString() : 'Recent'}
+                                                </td>
+                                                <td className="p-4 pr-6 text-center">
+                                                    <span className={`inline-flex px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider
+                                                        ${app.status === 'Accepted' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/40' : ''}
+                                                        ${app.status === 'Rejected' ? 'bg-rose-50 text-rose-700 border border-rose-200/40' : ''}
+                                                        ${app.status === 'Pending' ? 'bg-amber-50 text-amber-700 border border-amber-200/40' : ''}
+                                                    `}>
+                                                        {app.status || 'Pending'}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )
                 )}
             </div>
 
-            {/* DYNAMIC APPLICATION MODAL WINDOW LAYER */}
+            {/* SINGLE ATTACHMENT MODAL FORM COMPONENT */}
             {isModalOpen && (
-                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fadeIn">
-                    <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-xl w-full max-w-md animate-scaleUp">
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                    <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-xl w-full max-w-md">
                         <div className="flex justify-between items-center mb-6">
                             <h2 className="text-base font-black text-slate-900 tracking-tight">Complete Application Details</h2>
                             <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 font-bold text-sm">✕</button>

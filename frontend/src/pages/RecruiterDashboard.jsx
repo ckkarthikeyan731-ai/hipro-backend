@@ -1,320 +1,533 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import axios from 'axios';
-import API_URL from '../config.js'; // Dynamically pulls https://hipro-backend.onrender.com/api
+import API_URL from '../config.js'; // Dynamically pulls your backend domain destination path
 
 const RecruiterDashboard = () => {
-    // Pipeline & Application Tracking States
-    const [applications, setApplications] = useState([]);
+    // Structural System State Matrices
+    const [postedJobs, setPostedJobs] = useState([]);
+    const [incomingApplications, setIncomingApplications] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [actionLoading, setActionLoading] = useState(null);
+    const [activeSection, setActiveSection] = useState('overview'); // 'overview' | 'publish' | 'pipeline'
 
-    // Job Posting Creation Form States
-    const [jobData, setJobData] = useState({
-        title: '',
-        company: '',
-        location: '',
-        salary: '',
-        type: 'Full-time'
-    });
-    const [formSubmitting, setFormSubmitting] = useState(false);
+    // Form Configuration Data States
+    const [title, setTitle] = useState('');
+    const [company, setCompany] = useState('');
+    const [location, setLocation] = useState('');
+    const [salary, setSalary] = useState('');
+    const [type, setType] = useState('Full-Time');
+    const [description, setDescription] = useState('');
+    const [requirements, setRequirements] = useState('');
+    const [formMessage, setFormMessage] = useState({ type: '', text: '' });
 
-    // Fetch Incoming Applications Matrix
+    // UI Interactive Selection Filter Contexts
+    const [appFilter, setAppFilter] = useState('All'); // 'All' | 'Pending' | 'Accepted' | 'Rejected'
+    const [searchQuery, setSearchQuery] = useState('');
+    const [selectedApplicationDetails, setSelectedApplicationDetails] = useState(null);
+    const [isInspectorModalOpen, setIsInspectorModalOpen] = useState(false);
+
+    // Meticulous database sync engine
+    const loadMasterRecruiterDataTerminal = async () => {
+        try {
+            const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+            const headersConfig = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
+
+            // 1. Compile all jobs listed across backend databases
+            const jobsResponse = await axios.get(`${API_URL}/jobs`);
+            setPostedJobs(Array.isArray(jobsResponse.data) ? jobsResponse.data : []);
+
+            // 2. Fetch live incoming application packages submitted by candidates
+            const appsResponse = await axios.get(`${API_URL}/jobs/applications`, headersConfig);
+            setIncomingApplications(Array.isArray(appsResponse.data) ? appsResponse.data : []);
+
+        } catch (err) {
+            console.error("Recruiter terminal master synchronization process failed:", err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useEffect(() => {
-        const fetchIncomingApplications = async () => {
-            try {
-                const response = await axios.get(`${API_URL}/jobs/applications`);
-                setApplications(Array.isArray(response.data) ? response.data : []);
-            } catch (err) {
-                console.error("Failed to compile target app matrix:", err);
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchIncomingApplications();
+        loadMasterRecruiterDataTerminal();
     }, []);
 
-    // Handle Individual Candidate Pipelines 
-    const updateApplicationStatus = async (id, targetStatus) => {
-        try {
-            const response = await axios.patch(`${API_URL}/jobs/applications/${id}/status`, {
-                status: targetStatus
-            });
-            setApplications(prev =>
-                prev.map(item => item._id === id ? { ...item, status: response.data.status } : item)
-            );
-        } catch (err) {
-            console.error(err);
-            alert("Could not process structural status modification.");
-        }
-    };
-
-    // Handle Creating & Publishing New Openings 
-    const handleInputChange = (e) => {
-        const { name, value } = e.target;
-        setJobData(prev => ({ ...prev, [name]: value }));
-    };
-
-    const handlePublishJob = async (e) => {
+    // Process fresh job distribution publishing pipelines
+    const handlePublishJobPosting = async (e) => {
         e.preventDefault();
-        setFormSubmitting(true);
-        try {
-            // Adjust payload variables to map seamlessly to your backend mongoose schemes
-            const payload = {
-                title: jobData.title,
-                company: jobData.company,
-                location: jobData.location,
-                salary: jobData.salary,
-                type: jobData.type
-            };
+        setFormMessage({ type: '', text: '' });
 
-            const response = await axios.post(`${API_URL}/jobs/create`, payload);
+        if (!title.trim() || !company.trim() || !location.trim()) {
+            setFormMessage({ type: 'error', text: 'All essential operational metadata parameters must be specified.' });
+            return;
+        }
+
+        try {
+            const response = await axios.post(`${API_URL}/jobs/create`, {
+                title: title.trim(),
+                company: company.trim(),
+                location: location.trim(),
+                salary: salary.trim(),
+                type,
+                description: description.trim(),
+                requirements: requirements.trim()
+            });
 
             if (response.status === 200 || response.status === 201) {
-                alert("Job opening successfully broadcast live to the platform registry!");
-                // Clear state registers
-                setJobData({ title: '', company: '', location: '', salary: '', type: 'Full-time' });
+                setFormMessage({ type: 'success', text: 'Operational metric parameters successfully mapped to public board index.' });
+
+                // Clear state field buffers cleanly
+                setTitle('');
+                setCompany('');
+                setLocation('');
+                setSalary('');
+                setDescription('');
+                setRequirements('');
+
+                // Live fetch refresh data arrays without hard flashing redirections
+                const jobsRes = await axios.get(`${API_URL}/jobs`);
+                setPostedJobs(Array.isArray(jobsRes.data) ? jobsRes.data : []);
             }
         } catch (err) {
-            console.error("Critical error dispatching new job model instance data:", err);
-            alert("Failed to sync job posting to remote master records.");
-        } finally {
-            setFormSubmitting(false);
+            console.error("Job compilation posting failure:", err);
+            setFormMessage({ type: 'error', text: 'Handshake protocol rejected posting parameters storage allocation.' });
         }
     };
 
-    // Derived Analytic Metric States
-    const totalCount = applications.length;
-    const acceptedCount = applications.filter(a => a.status === 'Accepted').length;
-    const pendingCount = applications.filter(a => a.status === 'Pending').length;
+    // Commit state transformations live to MongoDB documents (Accept / Reject controller)
+    const handleEvaluateCandidateApplication = async (appId, targetStatusState) => {
+        setActionLoading(appId);
+        try {
+            const verificationToken = localStorage.getItem('token') || localStorage.getItem('authToken');
+
+            const response = await axios.patch(`${API_URL}/jobs/applications/${appId}/status`,
+                { status: targetStatusState },
+                { headers: { Authorization: `Bearer ${verificationToken}` } }
+            );
+
+            if (response.status === 200) {
+                // Mutate local matrix collection instantly to guarantee structural view integrity
+                setIncomingApplications(prev =>
+                    prev.map(app => app._id === appId ? { ...app, status: targetStatusState } : app)
+                );
+
+                if (selectedApplicationDetails?._id === appId) {
+                    setSelectedApplicationDetails(prev => ({ ...prev, status: targetStatusState }));
+                }
+            }
+        } catch (err) {
+            console.error("Server execution rejected status change instruction:", err);
+            alert("Database write error encountered modifying status evaluation flags.");
+        } finally {
+            setActionLoading(null);
+        }
+    };
+
+    const handleInspectCandidatePackage = (applicationObj) => {
+        setSelectedApplicationDetails(applicationObj);
+        setIsInspectorModalOpen(true);
+    };
+
+    const handleGlobalSessionTeardown = () => {
+        localStorage.clear();
+        sessionStorage.clear();
+        window.location.href = '#login';
+        window.location.reload();
+    };
+
+    // Perform highly complex compound caching evaluations for data charts filters
+    const processedApplicationsRegistry = useMemo(() => {
+        return incomingApplications.filter(app => {
+            const matchesFilter = appFilter === 'All' || app.status === appFilter || (!app.status && appFilter === 'Pending');
+            const candidateText = (app.jobId?.title || '').toLowerCase();
+            const coverText = (app.coverLetter || '').toLowerCase();
+            const searchMatch = candidateText.includes(searchQuery.toLowerCase()) || coverText.includes(searchQuery.toLowerCase());
+            return matchesFilter && searchMatch;
+        });
+    }, [incomingApplications, appFilter, searchQuery]);
+
+    // Derived metric data calculation counters
+    const dashboardMetricsSummary = useMemo(() => {
+        const totalPostings = postedJobs.length;
+        const totalApps = incomingApplications.length;
+        const pendingReviews = incomingApplications.filter(a => !a.status || a.status === 'Pending').length;
+        const processedApps = totalApps - pendingReviews;
+        return { totalPostings, totalApps, pendingReviews, processedApps };
+    }, [postedJobs, incomingApplications]);
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+            <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
                 <div className="text-center">
                     <div className="w-9 h-9 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
-                    <p className="mt-4 text-xs font-bold text-slate-400 tracking-wider uppercase">Compiling Application Indices...</p>
+                    <p className="mt-4 text-xs font-black text-slate-400 tracking-wider uppercase">Loading Corporate Console Clusters...</p>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-slate-50/50 p-6 md:p-10">
-            <div className="max-w-7xl mx-auto">
+        <div className="min-h-screen bg-slate-50/50 relative font-sans antialiased selection:bg-indigo-500 selection:text-white">
 
-                {/* Dashboard Heading Architecture */}
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-10 pb-5 border-b border-slate-200/60">
-                    <div>
-                        <h1 className="text-2xl font-black text-slate-900 tracking-tight sm:text-3xl">Applicant Track Intelligence</h1>
-                        <p className="text-xs text-slate-400 font-medium mt-1">Review applicant portfolios, track talent pipeline modifications, and audit resumes.</p>
+            {/* COMPREHENSIVE BRAND LAYOUT HEADER CONTROL ROW */}
+            <header className="bg-white border-b border-slate-100 px-6 py-4 sticky top-0 z-40 shadow-sm backdrop-blur-md bg-white/95">
+                <div className="max-w-7xl mx-auto flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-indigo-600 rounded-xl flex items-center justify-center shadow-md shadow-indigo-100">
+                            <span className="text-white font-black text-sm">Hi</span>
+                        </div>
+                        <span className="font-black text-slate-900 tracking-tight text-base uppercase tracking-wide">HiPro Corporate Terminal</span>
+                    </div>
+                    <div className="flex items-center gap-4">
+                        <nav className="hidden md:flex bg-slate-100 p-1 rounded-xl border border-slate-200/40 text-xs font-bold text-slate-500 space-x-1">
+                            <button onClick={() => setActiveSection('overview')} className={`px-4 py-1.5 rounded-lg transition ${activeSection === 'overview' ? 'bg-white text-slate-900 shadow-sm' : 'hover:text-slate-800'}`}>Dashboard Hub</button>
+                            <button onClick={() => setActiveSection('publish')} className={`px-4 py-1.5 rounded-lg transition ${activeSection === 'publish' ? 'bg-white text-slate-900 shadow-sm' : 'hover:text-slate-800'}`}>Broadcaster</button>
+                            <button onClick={() => setActiveSection('pipeline')} className={`px-4 py-1.5 rounded-lg transition ${activeSection === 'pipeline' ? 'bg-white text-slate-900 shadow-sm' : 'hover:text-slate-800'}`}>Evaluation Pipeline</button>
+                        </nav>
+                        <button
+                            onClick={handleGlobalSessionTeardown}
+                            className="bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-100 font-black px-4 py-2 rounded-xl transition duration-150 text-xs shadow-sm"
+                        >
+                            De-authorize Terminal
+                        </button>
                     </div>
                 </div>
+            </header>
 
-                {/* Analytical Counter Matrix Cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-10">
-                    <div className="bg-white border border-slate-100 p-6 rounded-2xl shadow-sm">
-                        <div className="flex justify-between items-center">
-                            <p className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">Total Evaluated Pool</p>
-                            <span className="p-1.5 rounded-lg bg-slate-50 text-slate-500">
-                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                                </svg>
+            {/* FLUID METRIC MONITOR DATA CHART TILES */}
+            <section className="bg-slate-900 text-white px-6 py-12 md:px-12 md:py-16 shadow-inner">
+                <div className="max-w-7xl mx-auto">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+                        <div>
+                            <span className="bg-indigo-500/10 text-indigo-400 text-[10px] font-extrabold uppercase tracking-wider px-3 py-1 rounded-full border border-indigo-500/20">
+                                Management Control Plane
                             </span>
+                            <h1 className="text-2xl md:text-4xl font-black tracking-tight mt-3">Corporate Overview Analytics</h1>
                         </div>
-                        <p className="text-3xl font-black text-slate-800 mt-2 tracking-tight">{totalCount}</p>
+                        <div className="flex md:hidden bg-slate-800/60 p-1 rounded-xl border border-slate-700/40 text-[11px] font-bold text-slate-400">
+                            <button onClick={() => setActiveSection('overview')} className={`px-3 py-1.5 rounded-lg ${activeSection === 'overview' ? 'bg-indigo-600 text-white' : ''}`}>Hub</button>
+                            <button onClick={() => setActiveSection('publish')} className={`px-3 py-1.5 rounded-lg ${activeSection === 'publish' ? 'bg-indigo-600 text-white' : ''}`}>Publish</button>
+                            <button onClick={() => setActiveSection('pipeline')} className={`px-3 py-1.5 rounded-lg ${activeSection === 'pipeline' ? 'bg-indigo-600 text-white' : ''}`}>Pipeline</button>
+                        </div>
                     </div>
-                    <div className="bg-white border border-slate-100 p-6 rounded-2xl shadow-sm">
-                        <div className="flex justify-between items-center">
-                            <p className="text-[11px] font-extrabold text-emerald-500 uppercase tracking-wider">Approved Candidates</p>
-                            <span className="p-1.5 rounded-lg bg-emerald-50 text-emerald-500">
-                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                            </span>
+
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div className="bg-slate-800/40 border border-slate-800 p-5 rounded-2xl">
+                            <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Active Open Positions</p>
+                            <p className="text-2xl font-black text-white mt-1 tracking-tight">{dashboardMetricsSummary.totalPostings}</p>
                         </div>
-                        <p className="text-3xl font-black text-slate-800 mt-2 tracking-tight">{acceptedCount}</p>
-                    </div>
-                    <div className="bg-white border border-slate-100 p-6 rounded-2xl shadow-sm">
-                        <div className="flex justify-between items-center">
-                            <p className="text-[11px] font-extrabold text-amber-500 uppercase tracking-wider">Pending Decisions</p>
-                            <span className="p-1.5 rounded-lg bg-amber-50 text-amber-500">
-                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                            </span>
+                        <div className="bg-slate-800/40 border border-slate-800 p-5 rounded-2xl">
+                            <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Candidate Dossiers Lodged</p>
+                            <p className="text-2xl font-black text-white mt-1 tracking-tight">{dashboardMetricsSummary.totalApps}</p>
                         </div>
-                        <p className="text-3xl font-black text-slate-800 mt-2 tracking-tight">{pendingCount}</p>
+                        <div className="bg-slate-800/40 border border-slate-800 p-5 rounded-2xl">
+                            <p className="text-[10px] font-extrabold text-amber-400 uppercase tracking-wider">Pending Evaluation Review</p>
+                            <p className="text-2xl font-black text-amber-400 mt-1 tracking-tight">{dashboardMetricsSummary.pendingReviews}</p>
+                        </div>
+                        <div className="bg-slate-800/40 border border-slate-800 p-5 rounded-2xl">
+                            <p className="text-[10px] font-extrabold text-emerald-400 uppercase tracking-wider">Processed Applications</p>
+                            <p className="text-2xl font-black text-emerald-400 mt-1 tracking-tight">{dashboardMetricsSummary.processedApps}</p>
+                        </div>
                     </div>
                 </div>
+            </section>
 
-                {/* Primary Dual View Split Layout Grid */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+            {/* PRIMARY WORKSPACE MONITOR DISPLAY MAPPING SEGMENTS */}
+            <main className="max-w-7xl mx-auto p-6 md:p-12">
 
-                    {/* Left Column: Job Posting Submission Module */}
-                    <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm">
-                        <div className="flex items-center gap-2 mb-6">
-                            <span className="text-indigo-600">
-                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                            </span>
-                            <h2 className="text-lg font-black text-slate-800 tracking-tight">Post a New Job</h2>
+                {activeSection === 'overview' && (
+                    /* PANEL 1: DASHBOARD HUB CORE LISTINGS INDEX */
+                    <div className="space-y-8 animate-fadeIn">
+                        <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm">
+                            <div className="mb-6">
+                                <h2 className="text-lg font-black text-slate-900 tracking-tight">Active Broadcast Inventory Index</h2>
+                                <p className="text-xs text-slate-400 font-medium mt-0.5">Live structural database configuration list currently deployed to student screens.</p>
+                            </div>
+
+                            {postedJobs.length === 0 ? (
+                                <div className="text-center p-12 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">No active job listings initialized inside system caches.</p>
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {postedJobs.map((job) => (
+                                        <div key={job._id} className="border border-slate-100 p-5 rounded-2xl bg-slate-50/50 hover:bg-white transition duration-200 shadow-sm flex flex-col justify-between">
+                                            <div>
+                                                <div className="flex justify-between items-start gap-2">
+                                                    <h4 className="font-black text-slate-800 text-sm tracking-tight leading-tight">{job.title}</h4>
+                                                    <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider shrink-0">{job.type}</span>
+                                                </div>
+                                                <p className="text-xs font-bold text-indigo-600 mt-1">{job.company}</p>
+                                                <p className="text-[11px] text-slate-400 font-medium mt-3 flex items-center gap-1">
+                                                    <span>📍</span> {job.location || 'Global/Remote'}
+                                                </p>
+                                            </div>
+                                            {job.salary && <div className="text-xs font-black text-slate-700 bg-white border border-slate-100 px-2.5 py-1 rounded-xl w-fit mt-4">₹ {job.salary}</div>}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {activeSection === 'publish' && (
+                    /* PANEL 2: BROADCASTER FORM SUBMISSION TERMINAL SECTION */
+                    <div className="max-w-2xl mx-auto bg-white border border-slate-100 rounded-3xl p-6 shadow-sm animate-scaleUp">
+                        <div className="mb-6">
+                            <h2 className="text-xl font-black text-slate-900 tracking-tight">Position Listing Broadcaster</h2>
+                            <p className="text-xs text-slate-400 font-medium mt-1">Compile structured position metadata arrays to broadcast outward live.</p>
                         </div>
 
-                        <form onSubmit={handlePublishJob} className="space-y-4">
-                            <div>
-                                <label className="block text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-1">Job Title *</label>
-                                <input
-                                    type="text"
-                                    name="title"
-                                    required
-                                    value={jobData.title}
-                                    onChange={handleInputChange}
-                                    placeholder="Software Developer"
-                                    className="w-full bg-slate-50 border border-slate-100 focus:border-indigo-500 focus:bg-white rounded-xl px-4 py-2.5 text-xs font-medium text-slate-800 transition duration-150 outline-none"
-                                />
+                        {formMessage.text && (
+                            <div className={`mb-5 px-4 py-3 rounded-xl text-xs font-bold ${formMessage.type === 'success' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-rose-50 text-rose-600 border border-rose-100'}`}>
+                                {formMessage.text}
                             </div>
-                            <div>
-                                <label className="block text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-1">Company Name *</label>
-                                <input
-                                    type="text"
-                                    name="company"
-                                    required
-                                    value={jobData.company}
-                                    onChange={handleInputChange}
-                                    placeholder="Google"
-                                    className="w-full bg-slate-50 border border-slate-100 focus:border-indigo-500 focus:bg-white rounded-xl px-4 py-2.5 text-xs font-medium text-slate-800 transition duration-150 outline-none"
-                                />
+                        )}
+
+                        <form onSubmit={handlePublishJobPosting} className="space-y-5">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-1.5">Corporate Position Title *</label>
+                                    <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g., Software Developer" className="w-full bg-slate-50 border border-slate-100 focus:border-indigo-500 focus:bg-white rounded-xl px-4 py-2.5 text-xs font-semibold outline-none transition shadow-inner" required />
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-1.5">Company Entity Identifier *</label>
+                                    <input type="text" value={company} onChange={(e) => setCompany(e.target.value)} placeholder="e.g., Google" className="w-full bg-slate-50 border border-slate-100 focus:border-indigo-500 focus:bg-white rounded-xl px-4 py-2.5 text-xs font-semibold outline-none transition shadow-inner" required />
+                                </div>
                             </div>
-                            <div>
-                                <label className="block text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-1">Location *</label>
-                                <input
-                                    type="text"
-                                    name="location"
-                                    required
-                                    value={jobData.location}
-                                    onChange={handleInputChange}
-                                    placeholder="Chennai, TN"
-                                    className="w-full bg-slate-50 border border-slate-100 focus:border-indigo-500 focus:bg-white rounded-xl px-4 py-2.5 text-xs font-medium text-slate-800 transition duration-150 outline-none"
-                                />
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-1.5">Geographic Location Area *</label>
+                                    <input type="text" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g., Chennai, India" className="w-full bg-slate-50 border border-slate-100 focus:border-indigo-500 focus:bg-white rounded-xl px-4 py-2.5 text-xs font-semibold outline-none transition shadow-inner" required />
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-1.5">Annual Salary Remuneration Range (₹)</label>
+                                    <input type="text" value={salary} onChange={(e) => setSalary(e.target.value)} placeholder="e.g., 12,000,000" className="w-full bg-slate-50 border border-slate-100 focus:border-indigo-500 focus:bg-white rounded-xl px-4 py-2.5 text-xs font-semibold outline-none transition shadow-inner" />
+                                </div>
                             </div>
+
                             <div>
-                                <label className="block text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-1">Salary Range</label>
-                                <input
-                                    type="text"
-                                    name="salary"
-                                    value={jobData.salary}
-                                    onChange={handleInputChange}
-                                    placeholder="12,000,000"
-                                    className="w-full bg-slate-50 border border-slate-100 focus:border-indigo-500 focus:bg-white rounded-xl px-4 py-2.5 text-xs font-medium text-slate-800 transition duration-150 outline-none"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-1">Job Setting Tier</label>
-                                <select
-                                    name="type"
-                                    value={jobData.type}
-                                    onChange={handleInputChange}
-                                    className="w-full bg-slate-50 border border-slate-100 focus:border-indigo-500 focus:bg-white rounded-xl px-4 py-2.5 text-xs font-medium text-slate-800 transition duration-150 outline-none"
-                                >
-                                    <option value="Full-time">Full-time</option>
-                                    <option value="Part-time">Part-time</option>
-                                    <option value="Remote">Remote</option>
-                                    <option value="Internship">Internship</option>
+                                <label className="block text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-1.5">Placement Classification Group Type</label>
+                                <select value={type} onChange={(e) => setType(e.target.value)} className="w-full bg-slate-50 border border-slate-100 focus:border-indigo-500 focus:bg-white rounded-xl px-4 py-2.5 text-xs font-bold outline-none transition">
+                                    <option value="Full-Time">Full-Time Operational Placement</option>
+                                    <option value="Part-Time">Part-Time Operational Classification</option>
+                                    <option value="Internship">Internship Practical Training Track</option>
                                 </select>
                             </div>
 
-                            <button
-                                type="submit"
-                                disabled={formSubmitting}
-                                className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold py-3 px-4 rounded-xl transition duration-150 text-xs tracking-wide shadow-md mt-2"
-                            >
-                                {formSubmitting ? "Syncing Configuration..." : "Publish Posting"}
+                            <div>
+                                <label className="block text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-1.5">Role Specifications / Scope Description</label>
+                                <textarea rows="3" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Outline baseline responsibilities mapping to the target role layout..." className="w-full bg-slate-50 border border-slate-100 focus:border-indigo-500 focus:bg-white rounded-xl px-4 py-2.5 text-xs font-semibold outline-none resize-none transition shadow-inner" />
+                            </div>
+
+                            <div>
+                                <label className="block text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-1.5">Core Pre-requisite Requirements Ledger</label>
+                                <textarea rows="2" value={requirements} onChange={(e) => setRequirements(e.target.value)} placeholder="List key languages, tools or framework metrics expected (e.g. React, Node.js)..." className="w-full bg-slate-50 border border-slate-100 focus:border-indigo-500 focus:bg-white rounded-xl px-4 py-2.5 text-xs font-semibold outline-none resize-none transition shadow-inner" />
+                            </div>
+
+                            <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-3.5 px-4 rounded-xl transition text-xs tracking-wide uppercase tracking-wider shadow-md shadow-indigo-100 pt-3.5">
+                                Deploy Position Structure Over Board
                             </button>
                         </form>
                     </div>
+                )}
 
-                    {/* Right Column: Applications Ledger Pipeline Monitor */}
-                    <div className="lg:col-span-2">
-                        {totalCount === 0 ? (
-                            <div className="bg-white border border-slate-100 rounded-3xl p-16 text-center shadow-sm w-full">
-                                <svg className="mx-auto text-slate-300 w-12 h-12 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-                                </svg>
-                                <p className="text-sm font-bold text-slate-800">Pipeline Empty</p>
-                                <p className="text-xs text-slate-400 mt-1 font-medium">No candidate file submissions have been captured in the ledger.</p>
+                {activeSection === 'pipeline' && (
+                    /* PANEL 3: CANDIDATE PIPELINE DATATABLE MATRIX SYSTEM OVERVIEW */
+                    <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm animate-fadeIn">
+
+                        {/* Interactive Data Filter Control Row */}
+                        <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center mb-6 pb-6 border-b border-slate-100">
+                            <div>
+                                <h2 className="text-xl font-black text-slate-900 tracking-tight">Candidate Portfolio Evaluation Pipelines</h2>
+                                <p className="text-xs text-slate-400 font-medium mt-0.5">Filter incoming binary attachment matrices and adjust selection logs.</p>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                                <input
+                                    type="text"
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    placeholder="Search portfolios..."
+                                    className="bg-slate-50 border border-slate-100 rounded-xl px-3 py-1.5 text-xs font-semibold outline-none focus:border-indigo-500 text-slate-800 shrink shadow-inner"
+                                />
+                                <select
+                                    value={appFilter}
+                                    onChange={(e) => setAppFilter(e.target.value)}
+                                    className="bg-slate-50 border border-slate-100 rounded-xl px-3 py-1.5 text-xs font-bold outline-none text-slate-600 cursor-pointer"
+                                >
+                                    <option value="All">All Pipelines</option>
+                                    <option value="Pending">Pending Records Only</option>
+                                    <option value="Accepted">Accepted Registers Only</option>
+                                    <option value="Rejected">Rejected Registers Only</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        {processedApplicationsRegistry.length === 0 ? (
+                            <div className="p-16 text-center bg-slate-50/50 rounded-2xl border border-dashed border-slate-100">
+                                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">No candidate records fit the active query parameters filter ledger.</p>
                             </div>
                         ) : (
-                            <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden w-full">
-                                <div className="overflow-x-auto">
-                                    <table className="w-full text-left border-collapse">
-                                        <thead>
-                                            <tr className="bg-slate-50/70 border-b border-slate-100 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                                                <th className="p-4 pl-6">Target Role</th>
-                                                <th className="p-4">Cover Statement</th>
-                                                <th className="p-4">Document File</th>
-                                                <th className="p-4">Pipeline Status</th>
-                                                <th className="p-4 pr-6 text-center">Operational Controls</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-slate-100 text-xs">
-                                            {applications.map((app) => (
-                                                <tr key={app._id} className="hover:bg-slate-50/30 transition-colors">
-                                                    <td className="p-4 pl-6 font-bold text-slate-800">
-                                                        {app.jobId?.title || <span className="text-slate-400 font-normal italic">Archived Position</span>}
-                                                    </td>
-                                                    <td className="p-4 text-slate-500 max-w-xs truncate font-medium">
-                                                        {app.coverLetter || <span className="text-slate-300 italic font-normal">Omitted</span>}
-                                                    </td>
-                                                    <td className="p-4">
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left border-collapse">
+                                    <thead>
+                                        <tr className="bg-slate-50/70 border-b border-slate-100 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
+                                            <th className="p-4 pl-6">Target Corporate Position</th>
+                                            <th className="p-4">Cover Introduction Matrix</th>
+                                            <th className="p-4">Candidate Document Link</th>
+                                            <th className="p-4 text-center">Status Index</th>
+                                            <th className="p-4 pr-6 text-center">Administrative Control Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100 text-xs font-semibold text-slate-700">
+                                        {processedApplicationsRegistry.map((app) => (
+                                            <tr key={app._id} className="hover:bg-slate-50/20 transition-all duration-150">
+                                                <td className="p-4 pl-6">
+                                                    <p className="font-black text-slate-800 text-sm leading-tight">{app.jobId?.title || "Archived Corporate Position"}</p>
+                                                    <p className="text-[10px] font-extrabold text-indigo-600 mt-0.5 uppercase tracking-wider">{app.jobId?.company || "N/A Group"}</p>
+                                                </td>
+                                                <td className="p-4 max-w-xs">
+                                                    <p className="truncate font-medium text-slate-500 italic">
+                                                        {app.coverLetter ? `"${app.coverLetter}"` : <span className="text-slate-300 not-italic">No statement attached</span>}
+                                                    </p>
+                                                </td>
+                                                <td className="p-4">
+                                                    {app.resumeUrl ? (
+                                                        // CRITICAL RESUME EMBED URL: Maps cleanly directly using your operational backend location formats
                                                         <a
-                                                            href={`https://hipro-backend.onrender.com/${app.resumeUrl}`}
+                                                            href={`${API_URL.replace('/api', '')}/${app.resumeUrl}`}
                                                             target="_blank"
                                                             rel="noopener noreferrer"
-                                                            className="inline-flex items-center gap-1 font-bold text-indigo-600 hover:text-indigo-800 transition-colors bg-indigo-50/60 px-3 py-1.5 rounded-xl text-[11px]"
+                                                            className="text-indigo-600 hover:text-indigo-800 font-black text-[11px] uppercase tracking-wide underline inline-flex items-center gap-0.5"
                                                         >
-                                                            View Resume
-                                                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                                                                <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                                                            </svg>
+                                                            📄 Render File URL Link
                                                         </a>
-                                                    </td>
-                                                    <td className="p-4">
-                                                        <span className={`inline-flex px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider
-                                                            ${app.status === 'Accepted' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/40' : ''}
-                                                            ${app.status === 'Rejected' ? 'bg-rose-50 text-rose-700 border border-rose-200/40' : ''}
-                                                            ${app.status === 'Pending' ? 'bg-amber-50 text-amber-700 border border-amber-200/40' : ''}
-                                                        `}>
-                                                            {app.status}
-                                                        </span>
-                                                    </td>
-                                                    <td className="p-4 pr-6 text-center space-x-2 whitespace-nowrap">
+                                                    ) : (
+                                                        <span className="text-slate-300 italic font-normal">Payload Empty</span>
+                                                    )}
+                                                </td>
+                                                <td className="p-4 text-center">
+                                                    <span className={`inline-flex px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider border
+                                                        ${app.status === 'Accepted' ? 'bg-emerald-50 text-emerald-700 border-emerald-200/50' : ''}
+                                                        ${app.status === 'Rejected' ? 'bg-rose-50 text-rose-700 border-rose-200/50' : ''}
+                                                        ${app.status === 'Pending' || !app.status ? 'bg-amber-50 text-amber-700 border-amber-200/50' : ''}
+                                                    `}>
+                                                        {app.status || 'Pending'}
+                                                    </span>
+                                                </td>
+                                                <td className="p-4 pr-6 text-center">
+                                                    <div className="flex items-center justify-center gap-1.5">
                                                         <button
-                                                            onClick={() => updateApplicationStatus(app._id, 'Accepted')}
-                                                            disabled={app.status === 'Accepted'}
-                                                            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded-xl transition duration-150 text-[11px] disabled:opacity-30 disabled:pointer-events-none shadow-sm"
+                                                            onClick={() => handleInspectCandidatePackage(app)}
+                                                            className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-black uppercase tracking-wider px-2.5 py-1.5 rounded-xl transition"
                                                         >
-                                                            Accept
+                                                            Inspect
                                                         </button>
-                                                        <button
-                                                            onClick={() => updateApplicationStatus(app._id, 'Rejected')}
-                                                            disabled={app.status === 'Rejected'}
-                                                            className="bg-rose-600 hover:bg-rose-700 text-white font-bold px-3 py-1.5 rounded-xl transition duration-150 text-[11px] disabled:opacity-30 disabled:pointer-events-none shadow-sm"
-                                                        >
-                                                            Reject
-                                                        </button>
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
+                                                        {(!app.status || app.status === 'Pending') && (
+                                                            <>
+                                                                <button
+                                                                    disabled={actionLoading === app._id}
+                                                                    onClick={() => handleEvaluateCandidateApplication(app._id, 'Accepted')}
+                                                                    className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-1.5 rounded-xl transition"
+                                                                >
+                                                                    Accept
+                                                                </button>
+                                                                <button
+                                                                    disabled={actionLoading === app._id}
+                                                                    onClick={() => handleEvaluateCandidateApplication(app._id, 'Rejected')}
+                                                                    className="bg-rose-600 hover:bg-rose-700 text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-1.5 rounded-xl transition"
+                                                                >
+                                                                    Reject
+                                                                </button>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
                             </div>
                         )}
                     </div>
+                )}
+            </main>
 
+            {/* EXPANDED CANDIDATE PACKAGE DETAILED INSPECTOR DIALOG OVERLAY SCREEN */}
+            {isInspectorModalOpen && selectedApplicationDetails && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fadeIn">
+                    <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-xl w-full max-w-lg animate-scaleUp">
+                        <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-50">
+                            <div>
+                                <h3 className="text-base font-black text-slate-900 tracking-tight">Full Application Analysis</h3>
+                                <p className="text-[10px] text-slate-400 font-medium mt-0.5 uppercase tracking-wider">Candidate Tracking Token ID: {selectedApplicationDetails._id}</p>
+                            </div>
+                            <button onClick={() => setIsInspectorModalOpen(false)} className="text-slate-400 hover:text-slate-600 font-black text-sm p-1">✕</button>
+                        </div>
+
+                        <div className="space-y-4 text-xs font-semibold text-slate-700">
+                            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100/60">
+                                <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-1">Target Corporate Opening</p>
+                                <p className="text-sm font-black text-slate-900">{selectedApplicationDetails.jobId?.title || 'N/A'}</p>
+                                <p className="text-[11px] font-bold text-indigo-600 mt-0.5">{selectedApplicationDetails.jobId?.company || 'N/A'}</p>
+                            </div>
+
+                            <div>
+                                <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-1">Candidate Cover Statement</p>
+                                <p className="bg-slate-50/50 border border-slate-100 rounded-xl p-4 font-medium text-slate-600 italic leading-relaxed">
+                                    {selectedApplicationDetails.coverLetter ? `"${selectedApplicationDetails.coverLetter}"` : "No description text logs supplied by student operator."}
+                                </p>
+                            </div>
+
+                            <div className="flex items-center justify-between pt-2">
+                                <div>
+                                    <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Pipeline Evaluation Status</p>
+                                    <span className={`inline-flex mt-1 px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider border
+                                        ${selectedApplicationDetails.status === 'Accepted' ? 'bg-emerald-50 text-emerald-700 border-emerald-200/50' : ''}
+                                        ${selectedApplicationDetails.status === 'Rejected' ? 'bg-rose-50 text-rose-700 border-rose-200/50' : ''}
+                                        ${selectedApplicationDetails.status === 'Pending' || !selectedApplicationDetails.status ? 'bg-amber-50 text-amber-700 border-amber-200/50' : ''}
+                                    `}>
+                                        {selectedApplicationDetails.status || 'Pending'}
+                                    </span>
+                                </div>
+
+                                {selectedApplicationDetails.resumeUrl && (
+                                    <a
+                                        href={`${API_URL.replace('/api', '')}/${selectedApplicationDetails.resumeUrl}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-100 px-4 py-2.5 rounded-xl font-black uppercase tracking-wider text-[11px] transition shadow-sm"
+                                    >
+                                        📄 Open Resume File
+                                    </a>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Inline Modal Control Updates Action Row */}
+                        {(!selectedApplicationDetails.status || selectedApplicationDetails.status === 'Pending') && (
+                            <div className="mt-8 pt-4 border-t border-slate-50 grid grid-cols-2 gap-3">
+                                <button
+                                    disabled={actionLoading === selectedApplicationDetails._id}
+                                    onClick={() => handleEvaluateCandidateApplication(selectedApplicationDetails._id, 'Accepted')}
+                                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-3 px-4 rounded-xl text-xs uppercase tracking-wider transition shadow-md"
+                                >
+                                    Approve Candidate
+                                </button>
+                                <button
+                                    disabled={actionLoading === selectedApplicationDetails._id}
+                                    onClick={() => handleEvaluateCandidateApplication(selectedApplicationDetails._id, 'Rejected')}
+                                    className="w-full bg-rose-600 hover:bg-rose-700 text-white font-black py-3 px-4 rounded-xl text-xs uppercase tracking-wider transition shadow-md"
+                                >
+                                    Decline Candidate
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
-
-            </div>
+            )}
         </div>
     );
 };

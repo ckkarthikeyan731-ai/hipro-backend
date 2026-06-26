@@ -1,75 +1,96 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import API_URL from '../config.js'; // Dynamically pulls your live backend API route context
+import API_URL from '../config.js';
 
 const Login = () => {
-    // Primary State Management Registries
+    // Structural Input Data Registries
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
-    // UI Accessibility and Visibility State Flags
+    // UI Visibility & Focus Flags
     const [showPassword, setShowPassword] = useState(false);
+    const [isMounted, setIsMounted] = useState(true);
+
+    useEffect(() => {
+        setIsMounted(true);
+        return () => setIsMounted(false);
+    }, []);
 
     const handleLoginSubmission = async (e) => {
         e.preventDefault();
+        if (!isMounted) return;
+
         setError('');
         setLoading(true);
 
-        // Enforce structural parameters before wasting bandwidth on a network call
-        if (!email.trim() || !password.trim()) {
-            setError("All system credential fields must be filled completely.");
+        const cleanEmail = email.trim();
+        if (!cleanEmail || !password) {
+            setError("All terminal access parameters must be completed.");
             setLoading(false);
             return;
         }
 
         try {
-            // Dispatch the verification parameters directly to your production cluster
+            // Post authorization metrics directly to live Render backend production servers
             const response = await axios.post(`${API_URL}/auth/login`, {
-                email: email.trim(),
+                email: cleanEmail,
                 password: password
             });
 
-            // MAXIMUM COMPATIBILITY EXTRACTOR: Deep scans response layers for any token formatting variant
-            const incomingToken =
+            // DEEP PAYLOAD SCANNER: Parses every possible JSON response structure for JWT variations
+            const extractedToken =
                 response.data?.token ||
                 response.data?.authToken ||
+                response.data?.jwt ||
                 response.data?.jwtToken ||
                 response.data?.data?.token ||
-                response.data?.user?.token;
+                response.data?.user?.token ||
+                (response.headers?.authorization ? response.headers.authorization.split(' ')[1] : null);
 
-            const userRole = response.data?.role || response.data?.user?.role || 'student';
+            const userRole =
+                response.data?.role ||
+                response.data?.user?.role ||
+                response.data?.accountType ||
+                'student';
 
-            if (incomingToken) {
-                // Instantly purge stale authorization tokens to eliminate caching layout corruption
+            if (extractedToken && extractedToken !== "undefined") {
+                // Securely purge old operational footprints to prevent state cross-contamination
                 localStorage.clear();
+                sessionStorage.clear();
 
-                // Save across all common namespace variations to protect StudentDashboard calls completely
-                localStorage.setItem('token', incomingToken);
-                localStorage.setItem('authToken', incomingToken);
+                // Lock keys across all common application namespaces simultaneously
+                localStorage.setItem('token', extractedToken);
+                localStorage.setItem('authToken', extractedToken);
                 localStorage.setItem('role', userRole);
+                localStorage.setItem('session_timestamp', Date.now().toString());
 
-                // PATH COMPLIANCE EVALUATOR: Tracks clean routing paths versus backward hash fallbacks
-                if (userRole === 'recruiter' || userRole === 'admin') {
-                    window.location.href = window.location.pathname.includes('_') ? '/_recruiter' : '#recruiter';
+                // Fallback backup onto SessionStorage in case local scope is restricted or blocked
+                sessionStorage.setItem('token', extractedToken);
+                sessionStorage.setItem('role', userRole);
+
+                // PATH EVALUATOR: Automatically handles standard hash paths or custom clean paths
+                const targetRoute = (userRole === 'recruiter' || userRole === 'admin') ? 'recruiter' : 'student';
+
+                if (window.location.pathname.includes('_') || !window.location.hash) {
+                    window.location.href = `/_${targetRoute}`;
                 } else {
-                    window.location.href = window.location.pathname.includes('_') ? '/_student' : '#student';
+                    window.location.href = `#${targetRoute}`;
                 }
 
-                // Introduce an explicit frame buffer delay to allow local storage writes to finalize fully
+                // Small explicit execution frame buffer delay ensuring I/O tasks write cleanly to disk
                 setTimeout(() => {
                     window.location.reload();
-                }, 100);
+                }, 150);
             } else {
-                setError("Authentication succeeded, but the security profile validation key was missing from the server array.");
+                setError("Credentials validated, but the authorization token layout failed to extract from the payload matrix.");
             }
         } catch (err) {
-            console.error("Secure handshake protocol rejected by backend server host:", err);
-            // Catch custom messaging details returned directly from your database routes
-            setError(err.response?.data?.message || "Invalid system credentials provided.");
+            console.error("Authentication handshake protocol rejected by cloud host platform:", err);
+            setError(err.response?.data?.message || err.response?.data?.error || "Invalid system verification credentials provided.");
         } finally {
-            setLoading(false);
+            if (isMounted) setLoading(false);
         }
     };
 
@@ -77,23 +98,23 @@ const Login = () => {
         <div className="min-h-screen bg-slate-50/50 flex items-center justify-center p-4 font-sans antialiased selection:bg-indigo-500 selection:text-white">
             <div className="bg-white border border-slate-100 rounded-3xl p-8 shadow-sm w-full max-w-md transition-all duration-300 hover:shadow-md">
 
-                {/* APPLICATION SYSTEM BRAND HERO LAYER */}
+                {/* HEAD CONTEXT PANEL HEADER */}
                 <div className="mb-8">
                     <div className="flex items-center gap-2 mb-4">
-                        <div className="w-6 h-6 bg-indigo-600 rounded-lg flex items-center justify-center shadow-md shadow-indigo-100 animate-pulse">
+                        <div className="w-6 h-6 bg-indigo-600 rounded-lg flex items-center justify-center shadow-md shadow-indigo-100">
                             <span className="text-white font-black text-[10px]">Hi</span>
                         </div>
-                        <span className="font-black text-slate-900 tracking-tight text-sm uppercase tracking-wider">HiPro Portal System</span>
+                        <span className="font-black text-slate-900 tracking-tight text-xs uppercase tracking-wider">HiPro Registry Terminal</span>
                     </div>
                     <h1 className="text-2xl font-black text-slate-900 tracking-tight">Secure Login</h1>
                     <p className="text-xs text-slate-400 font-medium mt-1 leading-relaxed">
-                        Input verified system parameters below to access core student terminals and real-time database registries.
+                        Input verified account parameters below to mount core system profiles and access real-time cloud data streams.
                     </p>
                 </div>
 
-                {/* ANIMATED SYSTEM ALERT COMPONENT */}
+                {/* VISUAL ALERTS BANNER LAYER */}
                 {error && (
-                    <div className="mb-5 bg-rose-50 text-rose-600 border border-rose-100/60 px-4 py-3 rounded-xl text-xs font-bold transition-all duration-200 flex items-center gap-2.5 animate-fadeIn">
+                    <div className="mb-5 bg-rose-50 text-rose-600 border border-rose-100/60 px-4 py-3 rounded-xl text-xs font-bold flex items-center gap-2.5 animate-fadeIn">
                         <svg className="w-4 h-4 shrink-0 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                         </svg>
@@ -101,11 +122,11 @@ const Login = () => {
                     </div>
                 )}
 
-                {/* PRIMARY SECURE TERMINAL DATA FORM */}
+                {/* CORE OPERATIONAL DATA FORM INPUTS */}
                 <form onSubmit={handleLoginSubmission} className="space-y-5">
                     <div>
                         <label className="block text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-1.5">
-                            Email Address Registry
+                            Email Address Parameter
                         </label>
                         <input
                             type="email"
@@ -120,14 +141,14 @@ const Login = () => {
                     <div>
                         <div className="flex justify-between items-center mb-1.5">
                             <label className="block text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
-                                Security Credentials
+                                Security Credentials Mask
                             </label>
                             <button
                                 type="button"
                                 onClick={() => setShowPassword(!showPassword)}
-                                className="text-[10px] font-extrabold text-indigo-500 hover:text-indigo-700 transition duration-100 uppercase tracking-wider select-none outline-none focus:text-indigo-700"
+                                className="text-[10px] font-extrabold text-indigo-500 hover:text-indigo-700 transition duration-100 uppercase tracking-wider select-none outline-none"
                             >
-                                {showPassword ? "Hide Mask" : "Reveal Mask"}
+                                {showPassword ? "Hide Field" : "Reveal Field"}
                             </button>
                         </div>
                         <input
@@ -144,17 +165,17 @@ const Login = () => {
                         <button
                             type="submit"
                             disabled={loading}
-                            className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold py-3.5 px-4 rounded-xl transition duration-150 text-xs tracking-wide shadow-md shadow-indigo-100/60 outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 active:scale-[0.99]"
+                            className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold py-3.5 px-4 rounded-xl transition duration-150 text-xs tracking-wide shadow-md shadow-indigo-100/60 outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                         >
                             {loading ? "Verifying Parameters..." : "Verify System Credentials"}
                         </button>
                     </div>
                 </form>
 
-                {/* CORE OPERATOR REDIRECTION LINK ENTRY */}
+                {/* ACCOUNT RE-ROUTING OPTION FOOTER */}
                 <div className="mt-8 pt-6 border-t border-slate-50 text-center">
                     <p className="text-xs text-slate-400 font-medium">
-                        New portal system operator?{" "}
+                        New system operator?{" "}
                         <a href="#register" className="text-indigo-600 hover:text-indigo-800 font-bold transition duration-150 underline decoration-indigo-200 underline-offset-4 decoration-2">
                             Create Master Profile
                         </a>

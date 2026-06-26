@@ -40,8 +40,8 @@ app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
 });
 
-// Connect to MongoDB Atlas and initialize the global cluster listen block
-mongoose.connect(process.env.MONGO_URI || process.env.MONGODB_URI)
+// Connect directly to your global URL environment parameter variable
+mongoose.connect(process.env.URL)
     .then(() => {
         console.log("Database Connection Verified & Mounted Status: Active");
         app.listen(PORT, () => {

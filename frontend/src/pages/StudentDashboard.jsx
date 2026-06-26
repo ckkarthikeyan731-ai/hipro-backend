@@ -157,32 +157,48 @@ const StudentDashboard = () => {
     // Process multipart HTTP POST data configurations safely
     const handleApplicationFormSubmit = async (e) => {
         e.preventDefault();
-        setFormError('');
         setSubmitLoading(true);
+        setFormError('');
 
         const token = localStorage.getItem('token') || localStorage.getItem('authToken');
-
-        // Ensure formData is clean and matches the backend 'resume' key
         const formData = new FormData();
+
         formData.append('jobId', selectedJobId);
         formData.append('coverLetter', coverLetter);
         formData.append('resume', resumeFile);
 
         try {
-            // CRITICAL: We do NOT set 'Content-Type' manually. 
-            // Axios will automatically add the boundary string when it sees FormData.
-            await axios.post(`${API_URL}/jobs/apply`, formData, {
+            // 1. Send request
+            const response = await axios.post(`${API_URL}/jobs/apply`, formData, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
             });
+
             alert("Application submitted successfully!");
             setIsModalOpen(false);
             setResumeFile(null);
             setCoverLetter('');
+
         } catch (err) {
-            console.error("Submission error:", err);
-            setFormError(err.response?.data?.message || "Submission failed. Ensure file size is under 5MB.");
+            // 2. THIS IS THE UNIVERSAL CATCH-ALL
+            console.error("FULL_ERROR_DEBUG:", err);
+
+            let errorMessage = "An unknown error occurred.";
+
+            if (!err.response) {
+                errorMessage = "Network Error: Could not connect to the server.";
+            } else if (err.response.status === 401 || err.response.status === 403) {
+                errorMessage = "Session Expired: Please logout and login again.";
+            } else if (err.response.status === 413) {
+                errorMessage = "File too large: Server rejected the upload.";
+            } else if (err.response.data && err.response.data.message) {
+                errorMessage = err.response.data.message;
+            } else if (err.response.data && err.response.data.error) {
+                errorMessage = err.response.data.error;
+            }
+
+            setFormError(errorMessage);
         } finally {
             setSubmitLoading(false);
         }

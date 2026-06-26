@@ -154,69 +154,39 @@ const StudentDashboard = () => {
     };
 
     // Transport multi-part binary file data configurations over secure endpoints cleanly
+    // Process multipart HTTP POST data configurations safely
     const handleApplicationFormSubmit = async (e) => {
         e.preventDefault();
         setFormError('');
-
-        if (!resumeFile) {
-            setFormError("A verified resume document container (PDF/DOCX) must be selected.");
-            return;
-        }
-
         setSubmitLoading(true);
+
+        const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+
+        // Ensure formData is clean and matches the backend 'resume' key
+        const formData = new FormData();
+        formData.append('jobId', selectedJobId);
+        formData.append('coverLetter', coverLetter);
+        formData.append('resume', resumeFile);
+
         try {
-            // DIAGNOSTIC STEP: Print out exactly what your browser has saved in its memory banks
-            console.log("--- START SYSTEM DIAGNOSTIC LOG ---");
-            console.log("localStorage 'token':", localStorage.getItem('token'));
-            console.log("localStorage 'authToken':", localStorage.getItem('authToken'));
-            console.log("sessionStorage 'token':", sessionStorage.getItem('token'));
-            console.log("--- END SYSTEM DIAGNOSTIC LOG ---");
-
-            // Look for any live token saved by your Login file, prioritizing real tokens over the emergency bypass
-            let realToken = localStorage.getItem('token') ||
-                localStorage.getItem('authToken') ||
-                sessionStorage.getItem('token');
-
-            // Fallback backup string if the storage is completely empty
-            if (!realToken || realToken === "undefined" || realToken === "null") {
-                realToken = "emergency_bypass_token_master_auth_verified";
-            }
-
-            const multipartPayload = new FormData();
-            multipartPayload.append('jobId', selectedJobId);
-            multipartPayload.append('coverLetter', coverLetter.trim());
-            multipartPayload.append('resume', resumeFile);
-
-            const response = await axios.post(`${API_URL}/jobs/apply`, multipartPayload, {
+            // CRITICAL: We do NOT set 'Content-Type' manually. 
+            // Axios will automatically add the boundary string when it sees FormData.
+            await axios.post(`${API_URL}/jobs/apply`, formData, {
                 headers: {
-                    // Send authorization metrics under both standard structures
-                    'Authorization': `Bearer ${realToken}`,
-                    'token': realToken,
-                    'Content-Type': 'multipart/form-data'
+                    'Authorization': `Bearer ${token}`
                 }
             });
-
-            if (response.status === 200 || response.status === 201) {
-                setIsModalOpen(false);
-                setCoverLetter('');
-                setResumeFile(null);
-
-                const refreshResponse = await axios.get(`${API_URL}/jobs/my-applications`, {
-                    headers: { 'Authorization': `Bearer ${realToken}` }
-                });
-                setMyApplications(Array.isArray(refreshResponse.data) ? refreshResponse.data : []);
-
-                alert("Application portfolio package successfully saved to target company indices!");
-            }
+            alert("Application submitted successfully!");
+            setIsModalOpen(false);
+            setResumeFile(null);
+            setCoverLetter('');
         } catch (err) {
-            console.error("Application placement tracking operation threw exception:", err);
-            // Informative diagnostic readout to see exactly what message your backend sent back
-            setFormError(err.response?.data?.message || err.response?.data?.error || "Multipart network boundary processing failure.");
+            console.error("Submission error:", err);
+            setFormError(err.response?.data?.message || "Submission failed. Ensure file size is under 5MB.");
         } finally {
             setSubmitLoading(false);
         }
     };
-
     // Calculate core data analytics metrics values for dashboard display grids
     const analyticsMetricsSummary = useMemo(() => {
         const total = myApplications.length;

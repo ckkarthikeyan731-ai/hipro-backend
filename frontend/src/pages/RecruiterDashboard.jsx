@@ -111,34 +111,32 @@ const RecruiterDashboard = () => {
     };
 
     // Alter candidate pipeline data evaluation flags cleanly inside MongoDB (Accept/Reject Core Engine)
-    const handleEvaluateCandidateApplication = async (appId, targetStatusStateFlag) => {
+    const handleEvaluateCandidateApplication = async (appId, status) => {
         setActionLoading(appId);
-        try {
-            const sessionToken = fetchActiveSessionToken();
 
-            const response = await axios.patch(`${API_URL}/jobs/applications/${appId}/status`,
-                { status: targetStatusStateFlag },
-                { headers: { Authorization: `Bearer ${sessionToken}` } }
+        // Ensure we retrieve the token exactly as the student side does
+        const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+
+        try {
+            // Send the request with the 'Authorization' header
+            await axios.patch(`${API_URL}/jobs/applications/${appId}/status`,
+                { status },
+                {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                }
             );
 
-            if (response.status === 200) {
-                // Mutate local matrix collections instantly to eliminate flashing overlay frame delays
-                setIncomingApplications(prev =>
-                    prev.map(app => app._id === appId ? { ...app, status: targetStatusStateFlag } : app)
-                );
-
-                if (selectedApplicationDetails?._id === appId) {
-                    setSelectedApplicationDetails(prev => ({ ...prev, status: targetStatusStateFlag }));
-                }
-            }
+            // Re-fetch data to update the UI without page reload
+            loadMasterRecruiterDataTerminal();
         } catch (err) {
-            console.error("Server cluster execution loop rejected status modification instruction:", err);
-            alert("Database tracking transaction error writing modified status metrics.");
+            console.error("Status update error:", err);
+            alert("Failed to update status. Ensure your session is active.");
         } finally {
             setActionLoading(null);
         }
     };
-
     const handleInspectCandidatePackage = (applicationObj) => {
         setSelectedApplicationDetails(applicationObj);
         setIsInspectorModalOpen(true);

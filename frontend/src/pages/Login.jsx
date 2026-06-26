@@ -3,26 +3,26 @@ import axios from 'axios';
 import API_URL from '../config.js';
 
 const Login = () => {
-    // Primary User Credential Input States
+    // Primary User Credential Input Data Matrices
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
-    // Interface Visibility, Password Toggles & Focus Tracking States
+    // UI Interaction, Accessibility and Visibility State Flags
     const [showPassword, setShowPassword] = useState(false);
     const [isMounted, setIsMounted] = useState(true);
     const [rememberMe, setRememberMe] = useState(true);
     const [emailFocused, setEmailFocused] = useState(false);
     const [passwordFocused, setPasswordFocused] = useState(false);
-    const [inputAnimation, setInputAnimation] = useState(false);
+    const [inputAnimationTrigger, setInputAnimationTrigger] = useState(false);
 
-    // Track state mounting parameters to prevent memory leaks during redirects
+    // Track component mounting parameters to prevent memory leaks or state update errors during redirects
     useEffect(() => {
         setIsMounted(true);
-        setInputAnimation(true);
+        setInputAnimationTrigger(true);
 
-        // Auto-fill email indicator parameter if stored in persistent memory
+        // Auto-fill email indicator parameter if stored in persistent browser memory registries
         const preservedOperator = localStorage.getItem('saved_operator_email');
         if (preservedOperator) {
             setEmail(preservedOperator);
@@ -38,37 +38,73 @@ const Login = () => {
         setError('');
         setLoading(true);
 
+        // Sanitize string metrics configuration data vectors before network transmission
+        const cleanEmail = email.trim();
+        if (!cleanEmail) {
+            setError("The operational system email address field cannot be left blank.");
+            setLoading(false);
+            return;
+        }
+
+        if (!password || password.length < 4) {
+            setError("Security credential keys must meet the minimum parameter length requirements.");
+            setLoading(false);
+            return;
+        }
+
         try {
+            // Forward authorization parameters straight to your production cloud web cluster
             const response = await axios.post(`${API_URL}/auth/login`, {
-                email: email.trim(),
+                email: cleanEmail,
                 password: password
             });
 
-            // Extract the string out of any potential backend nested field layout
+            // DEEP PAYLOAD AUTO-RECOVERY SCANNER: Extract validation key tokens from any object wrapping schema
             const secureToken =
                 response.data?.token ||
                 response.data?.authToken ||
                 response.data?.jwt ||
+                response.data?.jwtToken ||
                 response.data?.data?.token ||
-                response.data?.user?.token;
+                response.data?.user?.token ||
+                (response.headers?.authorization ? response.headers.authorization.split(' ')[1] : null);
 
-            const profileRole = response.data?.role || response.data?.user?.role || 'student';
+            const profileRole =
+                response.data?.role ||
+                response.data?.user?.role ||
+                response.data?.accountType ||
+                'student';
 
-            if (secureToken) {
+            if (secureToken && secureToken !== "undefined" && secureToken !== "null") {
+                // Instantly purge stale authorization tracking footprints to eliminate cache intersection bugs
                 localStorage.clear();
                 sessionStorage.clear();
 
-                // Force populate EVERY standard namespace key to guarantee the dashboard detects it
+                // Lock down identical authentication values across all available variable scopes simultaneously
                 localStorage.setItem('token', secureToken);
                 localStorage.setItem('authToken', secureToken);
                 localStorage.setItem('role', profileRole);
+                localStorage.setItem('session_generation_timestamp', Date.now().toString());
+
+                // Session Storage Fallback Layer for advanced cross-tab memory preservation configurations
                 sessionStorage.setItem('token', secureToken);
+                sessionStorage.setItem('role', profileRole);
 
-                console.log("Session verified. Token securely committed to browser disk storage.");
+                // Preserve operator context markers if the user toggled the remember checkbox
+                if (rememberMe) {
+                    localStorage.setItem('saved_operator_email', cleanEmail);
+                }
 
+                // DUAL ROUTING ENGINE: Maps both traditional clean routes and modern SPA routing switch variants
                 const fallbackRouteSegment = (profileRole === 'recruiter' || profileRole === 'admin') ? 'recruiter' : 'student';
-                window.location.href = `/_${fallbackRouteSegment}`;
 
+                if (window.location.pathname.includes('_') || !window.location.hash) {
+                    window.location.href = `/_${fallbackRouteSegment}`;
+                } else {
+                    window.location.href = `#${fallbackRouteSegment}`;
+                }
+
+                // Introduce structural I/O latency delay allowing system disk files to complete register tasks
                 setTimeout(() => {
                     window.location.reload();
                 }, 150);
@@ -76,15 +112,16 @@ const Login = () => {
                 setError("Credentials validated successfully, but the security access token was unreadable in the payload.");
             }
         } catch (err) {
-            console.error("Secure handshake authentication layout rejected:", err);
-            setError(err.response?.data?.message || "Invalid security parameters provided.");
+            console.error("Secure handshake authentication layout rejected by remote host:", err);
+            setError(err.response?.data?.message || err.response?.data?.error || "Invalid security parameters provided. Please check network logs.");
         } finally {
             if (isMounted) setLoading(false);
         }
     };
+
     return (
         <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-sans antialiased selection:bg-indigo-500 selection:text-white">
-            <div className={`bg-white border border-slate-100 rounded-3xl p-8 shadow-sm w-full max-w-md transition-all duration-500 transform ${inputAnimation ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'} hover:shadow-md`}>
+            <div className={`bg-white border border-slate-100 rounded-3xl p-8 shadow-sm w-full max-w-md transition-all duration-500 transform ${inputAnimationTrigger ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'} hover:shadow-md`}>
 
                 {/* HEAD CONTEXT PANEL LAYOUT HEADER */}
                 <div className="mb-8">
@@ -163,7 +200,6 @@ const Login = () => {
                         </div>
                     </div>
 
-                    {/* PERSISTENT MEMORY OPTION BUTTON ROW */}
                     <div className="flex items-center justify-between pt-1 text-xs font-semibold text-slate-500">
                         <label className="flex items-center gap-2 cursor-pointer select-none">
                             <input
@@ -183,14 +219,13 @@ const Login = () => {
                         <button
                             type="submit"
                             disabled={loading}
-                            className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-black py-3.5 px-4 rounded-xl transition duration-150 text-xs uppercase tracking-wider shadow-md shadow-indigo-100 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 active:scale-[0.99] outline-none"
+                            className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-black py-3.5 px-4 rounded-xl transition duration-150 text-xs uppercase tracking-wider shadow-md shadow-indigo-100/60 outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 active:scale-[0.99]"
                         >
                             {loading ? "Verifying Access Tokens..." : "Initialize Verification Sequence"}
                         </button>
                     </div>
                 </form>
 
-                {/* REDIRECTION FRAME REGISTRY PATH LINK */}
                 <div className="mt-8 pt-6 border-t border-slate-50 text-center">
                     <p className="text-xs text-slate-400 font-medium">
                         New system network operator?{" "}
@@ -199,7 +234,6 @@ const Login = () => {
                         </a>
                     </p>
                 </div>
-
             </div>
         </div>
     );

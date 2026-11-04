@@ -40,14 +40,20 @@ app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
 });
 
-// Ground truth connection block: Looks for MONGO_URL, URL, or URI to be 100% bulletproof
-mongoose.connect(process.env.MONGO_URL || process.env.URL || process.env.MONGO_URI || process.env.MONGODB_URI)
-    .then(() => {
-        console.log("Database Connection Verified & Mounted Status: Active");
-        app.listen(PORT, () => {
-            console.log(`HiPro Global Production Engine active on routing port: ${PORT}`);
+app.listen(PORT, () => {
+    console.log(`HiPro Global Production Engine active on routing port: ${PORT}`);
+});
+
+const mongoUri = process.env.MONGO_URL || process.env.URL || process.env.MONGO_URI || process.env.MONGODB_URI;
+
+if (!mongoUri) {
+    console.error("Critical Database initialization failure: Set MONGO_URL (or a supported MongoDB URI variable).");
+} else {
+    mongoose.connect(mongoUri)
+        .then(() => {
+            console.log("Database Connection Verified & Mounted Status: Active");
+        })
+        .catch((err) => {
+            console.error("Critical Database initialization failure:", err);
         });
-    })
-    .catch((err) => {
-        console.error("Critical Database initialization failure:", err);
-    });
+}
